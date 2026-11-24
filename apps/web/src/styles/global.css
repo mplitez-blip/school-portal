@@ -61,6 +61,11 @@ body {
   flex-direction: column;
 }
 
+/* Ensure standard hidden attributes beat author display rules (e.g. .field, .btn) without breaking hidden="until-found" */
+[hidden]:not([hidden="until-found" i]) {
+  display: none !important;
+}
+
 /* Visually hidden utility (accessible to screen readers; visible on focus for skip links) */
 .visually-hidden:where(:not(:focus-within, :active)) {
   position: absolute !important;
@@ -426,13 +431,13 @@ main {
   color: var(--accent-soft-ink);
 }
 
-/* Panels share one grid cell so hidden="until-found" never leaves extra gap strips */
+/* Normal block flow with no gap so hidden="until-found" panels collapse to 0px and never overlap or block clicks on the active panel */
 .tab-panels {
-  display: grid;
+  display: block;
 }
 
-.tab-panel {
-  grid-area: 1 / 1;
+.tab-panel[hidden] {
+  pointer-events: none;
 }
 
 .panel-inner {
