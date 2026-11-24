@@ -1,4 +1,4 @@
-import type { Category, PortalPayload, Resource, SchoolSettings, Subcategory } from '@school-portal/shared';
+import type { Category, LinkPreview, PortalPayload, Resource, SchoolSettings, Subcategory } from '@school-portal/shared';
 import { hashPassword } from './auth';
 import type { Env } from './types';
 
@@ -62,6 +62,12 @@ export interface ResourceRow {
   is_pinned: number;
   sort_order: number;
   updated_at: string;
+  preview_title?: string | null;
+  preview_description?: string | null;
+  preview_image?: string | null;
+  preview_site_name?: string | null;
+  preview_favicon?: string | null;
+  preview_fetched_at?: string | null;
 }
 
 export interface UserRow {
@@ -72,6 +78,18 @@ export interface UserRow {
 }
 
 export function mapResourceRow(row: ResourceRow): Resource {
+  let linkPreview: LinkPreview | null = null;
+  if (row.type === 'link' && row.preview_fetched_at) {
+    linkPreview = {
+      title: row.preview_title ?? null,
+      description: row.preview_description ?? null,
+      image: row.preview_image ?? null,
+      siteName: row.preview_site_name ?? null,
+      favicon: row.preview_favicon ?? null,
+      fetchedAt: row.preview_fetched_at ?? null,
+    };
+  }
+
   return {
     id: row.id,
     categoryId: row.category_id,
@@ -86,6 +104,7 @@ export function mapResourceRow(row: ResourceRow): Resource {
     isPinned: Boolean(row.is_pinned),
     sortOrder: row.sort_order,
     updatedAt: row.updated_at,
+    linkPreview,
   };
 }
 
@@ -117,7 +136,8 @@ export async function getPortalPayload(db: D1Database): Promise<PortalPayload> {
       .all<SubcategoryRow>(),
     db
       .prepare(
-        `SELECT id, category_id, subcategory_id, title, description, type, url, file_key, file_name, file_size, mime_type, is_pinned, sort_order, updated_at
+        `SELECT id, category_id, subcategory_id, title, description, type, url, file_key, file_name, file_size, mime_type, is_pinned, sort_order, updated_at,
+                preview_title, preview_description, preview_image, preview_site_name, preview_favicon, preview_fetched_at
          FROM resources
          ORDER BY is_pinned DESC, sort_order ASC, updated_at DESC`
       )

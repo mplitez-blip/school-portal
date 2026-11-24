@@ -22,6 +22,16 @@ export const SubcategorySchema = z.object({
 });
 export type Subcategory = z.infer<typeof SubcategorySchema>;
 
+export const LinkPreviewSchema = z.object({
+  title: z.string().nullable(),
+  description: z.string().nullable(),
+  image: z.string().nullable(),
+  siteName: z.string().nullable(),
+  favicon: z.string().nullable(),
+  fetchedAt: z.string().nullable(),
+});
+export type LinkPreview = z.infer<typeof LinkPreviewSchema>;
+
 export const ResourceSchema = z.object({
   id: z.string(),
   categoryId: z.string(),
@@ -36,6 +46,7 @@ export const ResourceSchema = z.object({
   isPinned: z.boolean(),
   sortOrder: z.number().int(),
   updatedAt: z.string(),
+  linkPreview: LinkPreviewSchema.nullable().optional(),
 });
 export type Resource = z.infer<typeof ResourceSchema>;
 

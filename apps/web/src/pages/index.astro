@@ -166,6 +166,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       renderModalPreview,
       type PreviewKind,
     } from '../lib/file-preview';
+    import { createLinkPreviewElement } from '../lib/link-preview-card';
     import { initTabs } from '../lib/tabs';
 
     const brandIconWrap = document.getElementById('brand-icon-wrap') as HTMLDivElement;
@@ -303,6 +304,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       const previewKind = detectPreviewKind(resource);
       if (previewKind) {
         li.append(createCardPreviewElement(resource, previewKind, openPreviewModal));
+      } else if (resource.type === 'link') {
+        const linkPreviewEl = createLinkPreviewElement(resource);
+        if (linkPreviewEl) li.append(linkPreviewEl);
       }
 
       if (resource.type === 'file' && resource.fileName) {

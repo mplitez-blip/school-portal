@@ -1,4 +1,4 @@
-import type { PortalPayload, Resource, SchoolSettings } from '@school-portal/shared';
+import type { LinkPreview, PortalPayload, Resource, SchoolSettings } from '@school-portal/shared';
 
 export const API_URL = (import.meta.env.PUBLIC_API_URL || 'http://localhost:8787').replace(/\/+$/, '');
 
@@ -54,6 +54,15 @@ export async function fetchPortal(): Promise<PortalPayload> {
   });
   if (!res.ok) throw new Error(await parseError(res));
   return (await res.json()) as PortalPayload;
+}
+
+export async function fetchLinkPreview(resourceId: string): Promise<LinkPreview> {
+  const res = await fetch(`${API_URL}/api/link-preview/${encodeURIComponent(resourceId)}`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = (await res.json()) as { preview: LinkPreview };
+  return data.preview;
 }
 
 export async function adminLogin(

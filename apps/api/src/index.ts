@@ -18,6 +18,7 @@ import {
   type SettingsRow,
   type UserRow,
 } from './db';
+import { fetchLinkPreviewMetadata } from './link-preview';
 import type { Env, JwtUserPayload } from './types';
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
@@ -117,6 +118,70 @@ app.get('/api/logo', async (c) => {
   );
 
   return new Response(object.body, { status: 200, headers });
+});
+
+const LINK_PREVIEW_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+// Public link preview metadata (cached in D1 so repeat visitors trigger zero external fetches)
+app.get('/api/link-preview/:id', async (c) => {
+  const id = c.req.param('id');
+  const row = await c.env.DB.prepare(
+    `SELECT id, type, url, preview_title, preview_description, preview_image, preview_site_name, preview_favicon, preview_fetched_at
+     FROM resources WHERE id = ? AND type = 'link'`
+  )
+    .bind(id)
+    .first<
+      Pick<
+        ResourceRow,
+        | 'id'
+        | 'type'
+        | 'url'
+        | 'preview_title'
+        | 'preview_description'
+        | 'preview_image'
+        | 'preview_site_name'
+        | 'preview_favicon'
+        | 'preview_fetched_at'
+      >
+    >();
+
+  if (!row || !row.url) {
+    return c.json({ error: 'Link resource not found.' }, 404);
+  }
+
+  const fetchedMs = row.preview_fetched_at ? Date.parse(row.preview_fetched_at) : Number.NaN;
+  const isFresh = Number.isFinite(fetchedMs) && Date.now() - fetchedMs < LINK_PREVIEW_TTL_MS;
+  if (isFresh) {
+    return c.json({
+      preview: {
+        title: row.preview_title ?? null,
+        description: row.preview_description ?? null,
+        image: row.preview_image ?? null,
+        siteName: row.preview_site_name ?? null,
+        favicon: row.preview_favicon ?? null,
+        fetchedAt: row.preview_fetched_at ?? null,
+      },
+    });
+  }
+
+  const preview = await fetchLinkPreviewMetadata(row.url);
+  await c.env.DB.prepare(
+    `UPDATE resources
+     SET preview_title = ?, preview_description = ?, preview_image = ?, preview_site_name = ?, preview_favicon = ?, preview_fetched_at = ?
+     WHERE id = ?`
+  )
+    .bind(
+      preview.title,
+      preview.description,
+      preview.image,
+      preview.siteName,
+      preview.favicon,
+      preview.fetchedAt,
+      id
+    )
+    .run();
+
+  return c.json({ preview });
 });
 
 // Public file download streamed directly from Cloudflare R2
@@ -468,10 +533,13 @@ app.post('/api/admin/resources', async (c) => {
     return c.json({ error: subCheck.error }, 400);
   }
 
+  const preview = await fetchLinkPreviewMetadata(parsed.data.url);
+
   await c.env.DB.prepare(
     `INSERT INTO resources (
-      id, category_id, subcategory_id, title, description, type, url, file_key, file_name, file_size, mime_type, is_pinned, sort_order, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, 'link', ?, NULL, NULL, NULL, NULL, ?, 0, ?, ?)`
+      id, category_id, subcategory_id, title, description, type, url, file_key, file_name, file_size, mime_type, is_pinned, sort_order, created_at, updated_at,
+      preview_title, preview_description, preview_image, preview_site_name, preview_favicon, preview_fetched_at
+    ) VALUES (?, ?, ?, ?, ?, 'link', ?, NULL, NULL, NULL, NULL, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       id,
@@ -482,7 +550,13 @@ app.post('/api/admin/resources', async (c) => {
       parsed.data.url,
       parsed.data.isPinned ? 1 : 0,
       now,
-      now
+      now,
+      preview.title,
+      preview.description,
+      preview.image,
+      preview.siteName,
+      preview.favicon,
+      preview.fetchedAt
     )
     .run();
 
@@ -539,13 +613,41 @@ app.patch('/api/admin/resources/:id', async (c) => {
   const nextPinned = parsed.data.isPinned !== undefined ? (parsed.data.isPinned ? 1 : 0) : existing.is_pinned;
   const now = new Date().toISOString();
 
-  await c.env.DB.prepare(
-    `UPDATE resources
-     SET category_id = ?, subcategory_id = ?, title = ?, description = ?, url = ?, is_pinned = ?, updated_at = ?
-     WHERE id = ?`
-  )
-    .bind(nextCategoryId, nextSubcategoryId, nextTitle, nextDescription, nextUrl, nextPinned, now, id)
-    .run();
+  const urlChanged = existing.type === 'link' && nextUrl && nextUrl !== existing.url;
+  if (urlChanged) {
+    const preview = await fetchLinkPreviewMetadata(nextUrl);
+    await c.env.DB.prepare(
+      `UPDATE resources
+       SET category_id = ?, subcategory_id = ?, title = ?, description = ?, url = ?, is_pinned = ?, updated_at = ?,
+           preview_title = ?, preview_description = ?, preview_image = ?, preview_site_name = ?, preview_favicon = ?, preview_fetched_at = ?
+       WHERE id = ?`
+    )
+      .bind(
+        nextCategoryId,
+        nextSubcategoryId,
+        nextTitle,
+        nextDescription,
+        nextUrl,
+        nextPinned,
+        now,
+        preview.title,
+        preview.description,
+        preview.image,
+        preview.siteName,
+        preview.favicon,
+        preview.fetchedAt,
+        id
+      )
+      .run();
+  } else {
+    await c.env.DB.prepare(
+      `UPDATE resources
+       SET category_id = ?, subcategory_id = ?, title = ?, description = ?, url = ?, is_pinned = ?, updated_at = ?
+       WHERE id = ?`
+    )
+      .bind(nextCategoryId, nextSubcategoryId, nextTitle, nextDescription, nextUrl, nextPinned, now, id)
+      .run();
+  }
 
   const updated = await c.env.DB.prepare('SELECT * FROM resources WHERE id = ?')
     .bind(id)
