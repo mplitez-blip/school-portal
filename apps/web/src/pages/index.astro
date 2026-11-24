@@ -1,0 +1,386 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Teacher Resource Portal">
+  <a href="#main-content" class="skip-link visually-hidden">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+            <path d="M6 12v5c3 3 9 3 12 0v-5" />
+          </svg>
+        </div>
+        <div>
+          <h1 id="main-content" tabindex="-1" class="brand-title">School Teacher Portal</h1>
+          <p id="school-tagline" class="brand-tagline">Submission links, templates, and downloads</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div id="announcement-banner" class="announcement-banner" hidden>
+    <div class="container announcement-inner">
+      <span aria-hidden="true">📢</span>
+      <span id="announcement-text"></span>
+    </div>
+  </div>
+
+  <main class="container">
+    <search class="search-box">
+      <form id="search-form" novalidate>
+        <label for="portal-search" class="search-label">Find a form, template, or download</label>
+        <div class="search-row">
+          <div class="search-input-wrap">
+            <input
+              id="portal-search"
+              name="q"
+              type="search"
+              class="search-input"
+              placeholder="Search e.g. attendance, lesson plan, calendar..."
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+              enterkeyhint="search"
+            />
+          </div>
+          <button id="clear-search-btn" type="button" class="btn btn-secondary" hidden>Clear</button>
+        </div>
+        <p id="search-status" class="search-hint" role="status" aria-live="polite">
+          Loading school resources…
+        </p>
+      </form>
+    </search>
+
+    <div id="portal-error" class="status-msg status-error" role="alert" hidden></div>
+
+    <section id="pinned-section" class="pinned-section" hidden>
+      <h2 class="section-heading">
+        <span aria-hidden="true">⭐</span>
+        <span>Quick Access (Most Used)</span>
+      </h2>
+      <ul id="pinned-list" class="card-grid" role="list"></ul>
+    </section>
+
+    <section aria-labelledby="browse-heading">
+      <h2 id="browse-heading" class="visually-hidden">Browse resources by category</h2>
+
+      <div id="portal-tabs" class="tabs">
+        <div class="tablist-wrap">
+          <div
+            id="category-tablist"
+            class="tablist scroller"
+            focusgroup="tablist nomemory"
+            aria-label="Resource categories"
+          >
+            <button type="button" id="tab-all" class="tab-btn" aria-selected="true" focusgroupstart>
+              <span>All Resources</span>
+              <span class="tab-count" data-count-for="all">0</span>
+            </button>
+            <button type="button" id="tab-submissions" class="tab-btn" aria-selected="false">
+              <span>Submission Links</span>
+              <span class="tab-count" data-count-for="cat-submissions">0</span>
+            </button>
+            <button type="button" id="tab-templates" class="tab-btn" aria-selected="false">
+              <span>Templates</span>
+              <span class="tab-count" data-count-for="cat-templates">0</span>
+            </button>
+            <button type="button" id="tab-downloads" class="tab-btn" aria-selected="false">
+              <span>Downloads</span>
+              <span class="tab-count" data-count-for="cat-downloads">0</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="category-panels" class="tab-panels">
+          <div role="tabpanel" aria-labelledby="tab-all" class="tab-panel" data-category-id="all">
+            <div class="panel-inner">
+              <ul class="card-grid" role="list" data-list-for="all"></ul>
+            </div>
+          </div>
+          <div role="tabpanel" aria-labelledby="tab-submissions" class="tab-panel" data-category-id="cat-submissions" hidden="until-found">
+            <div class="panel-inner">
+              <ul class="card-grid" role="list" data-list-for="cat-submissions"></ul>
+            </div>
+          </div>
+          <div role="tabpanel" aria-labelledby="tab-templates" class="tab-panel" data-category-id="cat-templates" hidden="until-found">
+            <div class="panel-inner">
+              <ul class="card-grid" role="list" data-list-for="cat-templates"></ul>
+            </div>
+          </div>
+          <div role="tabpanel" aria-labelledby="tab-downloads" class="tab-panel" data-category-id="cat-downloads" hidden="until-found">
+            <div class="panel-inner">
+              <ul class="card-grid" role="list" data-list-for="cat-downloads"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span id="footer-school-name">School Teacher Portal</span>
+      <a href="/admin" class="footer-link">Admin Login</a>
+    </div>
+  </footer>
+
+  <script>
+    import type { Category, PortalPayload, Resource } from '@school-portal/shared';
+    import { fetchPortal, formatFileSize, getFileDownloadUrl } from '../lib/api';
+    import { initTabs } from '../lib/tabs';
+
+    const schoolNameEl = document.getElementById('main-content') as HTMLHeadingElement;
+    const schoolTaglineEl = document.getElementById('school-tagline') as HTMLParagraphElement;
+    const footerSchoolNameEl = document.getElementById('footer-school-name') as HTMLSpanElement;
+    const announcementBanner = document.getElementById('announcement-banner') as HTMLDivElement;
+    const announcementText = document.getElementById('announcement-text') as HTMLSpanElement;
+    const searchForm = document.getElementById('search-form') as HTMLFormElement;
+    const searchInput = document.getElementById('portal-search') as HTMLInputElement;
+    const clearSearchBtn = document.getElementById('clear-search-btn') as HTMLButtonElement;
+    const searchStatusEl = document.getElementById('search-status') as HTMLParagraphElement;
+    const portalErrorEl = document.getElementById('portal-error') as HTMLDivElement;
+    const pinnedSection = document.getElementById('pinned-section') as HTMLElement;
+    const pinnedList = document.getElementById('pinned-list') as HTMLUListElement;
+    const tabsContainer = document.getElementById('portal-tabs') as HTMLDivElement;
+
+    const tabsController = initTabs(tabsContainer);
+
+    let portalData: PortalPayload | null = null;
+    let searchAnnounceTimer: number | undefined;
+
+    function createResourceCard(resource: Resource, categoryMap: Map<string, Category>): HTMLLIElement {
+      const li = document.createElement('li');
+      li.className = resource.isPinned ? 'resource-card is-pinned' : 'resource-card';
+
+      const badges = document.createElement('div');
+      badges.className = 'card-badges';
+
+      if (resource.isPinned) {
+        const pinBadge = document.createElement('span');
+        pinBadge.className = 'badge badge-pinned';
+        pinBadge.textContent = '★ Quick Access';
+        badges.append(pinBadge);
+      }
+
+      const category = categoryMap.get(resource.categoryId);
+      if (category) {
+        const catBadge = document.createElement('span');
+        catBadge.className = 'badge';
+        catBadge.textContent = category.name;
+        badges.append(catBadge);
+      }
+
+      if (resource.type === 'file') {
+        const fileBadge = document.createElement('span');
+        fileBadge.className = 'badge badge-file';
+        fileBadge.textContent = 'File Download';
+        badges.append(fileBadge);
+      }
+
+      const title = document.createElement('h3');
+      title.className = 'card-title';
+      title.textContent = resource.title;
+
+      const desc = document.createElement('p');
+      desc.className = 'card-desc';
+      desc.textContent =
+        resource.description ||
+        (resource.type === 'file'
+          ? 'Click below to download this file to your device.'
+          : 'Click below to open this link in a new tab.');
+
+      li.append(badges, title, desc);
+
+      if (resource.type === 'file' && resource.fileName) {
+        const meta = document.createElement('div');
+        meta.className = 'card-meta';
+        const sizeLabel = formatFileSize(resource.fileSize);
+        meta.textContent = sizeLabel ? `${resource.fileName} (${sizeLabel})` : resource.fileName;
+        li.append(meta);
+      }
+
+      const actionWrap = document.createElement('div');
+      actionWrap.className = 'card-action';
+
+      const link = document.createElement('a');
+      link.className = 'btn btn-primary';
+
+      if (resource.type === 'file') {
+        link.href = getFileDownloadUrl(resource.id);
+        link.setAttribute('download', resource.fileName || '');
+        link.append(document.createTextNode('Download File '));
+        const arrow = document.createElement('span');
+        arrow.setAttribute('aria-hidden', 'true');
+        arrow.textContent = '↓';
+        link.append(arrow);
+      } else {
+        link.href = resource.url || '#';
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.append(document.createTextNode('Open Link '));
+        const arrow = document.createElement('span');
+        arrow.setAttribute('aria-hidden', 'true');
+        arrow.textContent = '↗';
+        link.append(arrow);
+      }
+
+      const srContext = document.createElement('span');
+      srContext.className = 'visually-hidden';
+      srContext.textContent = `: ${resource.title}`;
+      link.append(srContext);
+
+      actionWrap.append(link);
+      li.append(actionWrap);
+      return li;
+    }
+
+    function createEmptyCard(message: string): HTMLLIElement {
+      const li = document.createElement('li');
+      li.className = 'state-card';
+      li.style.gridColumn = '1 / -1';
+      li.textContent = message;
+      return li;
+    }
+
+    function renderPortal(query: string, announceStatus = false): void {
+      if (!portalData) return;
+
+      const normalized = query.trim().toLowerCase();
+      const categoryMap = new Map(portalData.categories.map((cat) => [cat.id, cat]));
+
+      const filtered = portalData.resources.filter((res) => {
+        if (!normalized) return true;
+        const catName = categoryMap.get(res.categoryId)?.name.toLowerCase() || '';
+        return (
+          res.title.toLowerCase().includes(normalized) ||
+          res.description.toLowerCase().includes(normalized) ||
+          (res.fileName || '').toLowerCase().includes(normalized) ||
+          catName.includes(normalized)
+        );
+      });
+
+      // Pinned strip shown only when not actively filtering
+      const pinned = filtered.filter((r) => r.isPinned);
+      if (!normalized && pinned.length > 0) {
+        pinnedSection.hidden = false;
+        pinnedList.replaceChildren(...pinned.map((r) => createResourceCard(r, categoryMap)));
+      } else {
+        pinnedSection.hidden = true;
+        pinnedList.replaceChildren();
+      }
+
+      // Render All Resources tab
+      const allList = document.querySelector<HTMLUListElement>('[data-list-for="all"]');
+      const allCount = document.querySelector<HTMLSpanElement>('[data-count-for="all"]');
+      if (allCount) allCount.textContent = String(filtered.length);
+      if (allList) {
+        if (filtered.length === 0) {
+          allList.replaceChildren(
+            createEmptyCard(
+              normalized
+                ? `No items matched "${query.trim()}". Try a different word or clear search.`
+                : 'No resources have been added yet.'
+            )
+          );
+        } else {
+          allList.replaceChildren(...filtered.map((r) => createResourceCard(r, categoryMap)));
+        }
+      }
+
+      // Render each category tab
+      for (const cat of portalData.categories) {
+        const items = filtered.filter((r) => r.categoryId === cat.id);
+        const countEl = document.querySelector<HTMLSpanElement>(`[data-count-for="${CSS.escape(cat.id)}"]`);
+        const listEl = document.querySelector<HTMLUListElement>(`[data-list-for="${CSS.escape(cat.id)}"]`);
+
+        if (countEl) countEl.textContent = String(items.length);
+        if (listEl) {
+          if (items.length === 0) {
+            listEl.replaceChildren(
+              createEmptyCard(
+                normalized
+                  ? `No ${cat.name.toLowerCase()} matched "${query.trim()}".`
+                  : `No ${cat.name.toLowerCase()} available yet.`
+              )
+            );
+          } else {
+            listEl.replaceChildren(...items.map((r) => createResourceCard(r, categoryMap)));
+          }
+        }
+      }
+
+      const summary = normalized
+        ? `Showing ${filtered.length} result${filtered.length === 1 ? '' : 's'} for "${query.trim()}".`
+        : `${portalData.resources.length} resource${portalData.resources.length === 1 ? '' : 's'} available. Tap any button below to open or download.`;
+
+      if (announceStatus) {
+        window.clearTimeout(searchAnnounceTimer);
+        searchAnnounceTimer = window.setTimeout(() => {
+          searchStatusEl.textContent = summary;
+        }, 250);
+      } else {
+        searchStatusEl.textContent = summary;
+      }
+
+      tabsController.refreshScrollHints();
+    }
+
+    async function loadPortal(): Promise<void> {
+      try {
+        portalErrorEl.hidden = true;
+        portalData = await fetchPortal();
+
+        const { settings } = portalData;
+        schoolNameEl.textContent = settings.schoolName;
+        footerSchoolNameEl.textContent = settings.schoolName;
+        document.title = `${settings.schoolName} | Teacher Portal`;
+
+        if (settings.tagline) {
+          schoolTaglineEl.textContent = settings.tagline;
+        }
+
+        if (settings.announcement) {
+          announcementText.textContent = settings.announcement;
+          announcementBanner.hidden = false;
+        } else {
+          announcementBanner.hidden = true;
+        }
+
+        renderPortal(searchInput.value, false);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Could not connect to the school server.';
+        portalErrorEl.textContent = `Unable to load resources right now. (${msg})`;
+        portalErrorEl.hidden = false;
+        searchStatusEl.textContent = 'Connection error. Please refresh the page.';
+      }
+    }
+
+    searchForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      tabsController.selectById('tab-all');
+      renderPortal(searchInput.value, true);
+    });
+
+    searchInput.addEventListener('input', () => {
+      const hasText = searchInput.value.trim().length > 0;
+      clearSearchBtn.hidden = !hasText;
+      if (hasText) {
+        tabsController.selectById('tab-all');
+      }
+      renderPortal(searchInput.value, true);
+    });
+
+    clearSearchBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      clearSearchBtn.hidden = true;
+      renderPortal('', true);
+      searchInput.focus();
+    });
+
+    void loadPortal();
+  </script>
+</BaseLayout>

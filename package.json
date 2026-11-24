@@ -1,0 +1,19 @@
+{
+  "name": "school-portal",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace @school-portal/api run dev",
+    "dev:web": "npm --workspace @school-portal/web run dev",
+    "build": "npm --workspace @school-portal/web run build",
+    "typecheck": "npm --workspace @school-portal/api run typecheck && npm --workspace @school-portal/web run typecheck",
+    "db:migrate:local": "npm --workspace @school-portal/api run db:migrate:local",
+    "db:migrate:remote": "npm --workspace @school-portal/api run db:migrate:remote",
+    "deploy:api": "npm --workspace @school-portal/api run deploy",
+    "deploy:web": "npm --workspace @school-portal/web run deploy"
+  }
+}

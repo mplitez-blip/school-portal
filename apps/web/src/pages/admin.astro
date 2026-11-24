@@ -1,0 +1,956 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Admin Dashboard | School Teacher Portal">
+  <a href="#main-content" class="skip-link visually-hidden">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+        </div>
+        <div>
+          <h1 id="main-content" tabindex="-1" class="brand-title">Admin Dashboard</h1>
+          <p id="admin-school-subtitle" class="brand-tagline">Manage school name, submission links, templates, and downloads</p>
+        </div>
+      </div>
+
+      <nav class="header-actions" aria-label="Admin">
+        <a href="/" class="btn btn-ghost-light">View Teacher Portal</a>
+        <button id="sign-out-btn" type="button" class="btn btn-ghost-light" hidden>Sign Out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Sign-in View -->
+    <section id="login-section" class="panel-card" style="max-inline-size: 520px; margin-inline: auto;">
+      <h2 id="login-heading">Admin Sign In</h2>
+      <p class="panel-subtitle">
+        Sign in to change the school name or manage links and files for teachers.
+      </p>
+
+      <div id="login-error" class="status-msg status-error" role="alert" hidden></div>
+
+      <form id="login-form" aria-labelledby="login-heading" method="POST">
+        <div class="field">
+          <label for="login-username">Username <span aria-hidden="true">*</span></label>
+          <input
+            id="login-username"
+            name="username"
+            type="text"
+            class="input"
+            autocomplete="username"
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
+            enterkeyhint="next"
+            required
+            data-error="login-username-error"
+          />
+          <div id="login-username-error" class="error-msg">
+            <span role="img" aria-label="Error">❌</span> Please enter your admin username.
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="login-password">Password <span aria-hidden="true">*</span></label>
+          <div class="password-row">
+            <input
+              id="login-password"
+              name="password"
+              type="password"
+              class="input"
+              autocomplete="current-password"
+              enterkeyhint="done"
+              required
+              data-error="login-password-error"
+            />
+            <button
+              id="toggle-login-password"
+              type="button"
+              class="btn btn-secondary"
+              aria-pressed="false"
+              aria-describedby="login-pw-warning"
+            >
+              Show
+            </button>
+          </div>
+          <div id="login-password-error" class="error-msg">
+            <span role="img" aria-label="Error">❌</span> Please enter your password.
+          </div>
+          <span id="login-pw-warning" class="visually-hidden">
+            Warning: this will display your password on the screen.
+          </span>
+        </div>
+
+        <button id="login-submit" type="submit" class="btn btn-primary" style="width: 100%;">
+          Sign In
+        </button>
+      </form>
+    </section>
+
+    <!-- Authenticated Admin Workspace -->
+    <div id="dashboard-section" hidden>
+      <div id="admin-tabs" class="tabs">
+        <div class="tablist-wrap">
+          <div class="tablist scroller" focusgroup="tablist nomemory" aria-label="Admin sections">
+            <button type="button" id="tab-school" class="tab-btn" aria-selected="true" focusgroupstart>
+              School Settings
+            </button>
+            <button type="button" id="tab-resources" class="tab-btn" aria-selected="false">
+              Links &amp; Files
+            </button>
+          </div>
+        </div>
+
+        <div class="tab-panels">
+          <!-- Tab 1: School Settings -->
+          <div role="tabpanel" aria-labelledby="tab-school" class="tab-panel">
+            <div class="panel-inner">
+              <section class="panel-card">
+                <h2 id="school-info-heading">School Name &amp; Notice Banner</h2>
+                <p class="panel-subtitle">
+                  Changes appear immediately on the Teacher Portal and future Android app.
+                </p>
+
+                <div id="settings-status" class="status-msg" role="status" aria-live="polite" hidden></div>
+
+                <form id="settings-form" aria-labelledby="school-info-heading" method="POST">
+                  <div class="field">
+                    <label for="school-name-input">School Name <span aria-hidden="true">*</span></label>
+                    <span id="school-name-hint" class="hint">Shown at the top of the Teacher Portal (2 to 120 characters).</span>
+                    <input
+                      id="school-name-input"
+                      name="schoolName"
+                      type="text"
+                      class="input"
+                      minlength="2"
+                      maxlength="120"
+                      required
+                      aria-describedby="school-name-hint"
+                      data-error="school-name-error"
+                    />
+                    <div id="school-name-error" class="error-msg">
+                      <span role="img" aria-label="Error">❌</span> Enter a school name of at least 2 characters.
+                    </div>
+                  </div>
+
+                  <div class="field">
+                    <label for="school-tagline-input">Subtitle / Tagline</label>
+                    <span id="school-tagline-hint" class="hint">Optional short line shown under the school name.</span>
+                    <input
+                      id="school-tagline-input"
+                      name="tagline"
+                      type="text"
+                      class="input"
+                      maxlength="200"
+                      aria-describedby="school-tagline-hint"
+                    />
+                  </div>
+
+                  <div class="field">
+                    <label for="school-announcement-input">Top Announcement Banner (Optional)</label>
+                    <span id="school-announcement-hint" class="hint">Leave blank to hide the yellow notice strip at the top.</span>
+                    <textarea
+                      id="school-announcement-input"
+                      name="announcement"
+                      class="textarea"
+                      maxlength="400"
+                      aria-describedby="school-announcement-hint"
+                    ></textarea>
+                  </div>
+
+                  <button id="save-settings-btn" type="submit" class="btn btn-primary">
+                    Save School Settings
+                  </button>
+                </form>
+              </section>
+
+              <section class="panel-card">
+                <h2 id="password-heading">Change Admin Password</h2>
+                <p class="panel-subtitle">Update your sign-in password anytime.</p>
+
+                <div id="password-status" class="status-msg" role="status" aria-live="polite" hidden></div>
+
+                <form id="password-form" aria-labelledby="password-heading" method="POST">
+                  <div class="field">
+                    <label for="current-password">Current Password <span aria-hidden="true">*</span></label>
+                    <input
+                      id="current-password"
+                      name="currentPassword"
+                      type="password"
+                      class="input"
+                      autocomplete="current-password"
+                      required
+                      data-error="current-password-error"
+                    />
+                    <div id="current-password-error" class="error-msg">
+                      <span role="img" aria-label="Error">❌</span> Please enter your current password.
+                    </div>
+                  </div>
+
+                  <div class="field">
+                    <label for="new-password">New Password <span aria-hidden="true">*</span></label>
+                    <span id="new-password-hint" class="hint">Use at least 8 characters.</span>
+                    <div class="password-row">
+                      <input
+                        id="new-password"
+                        name="newPassword"
+                        type="password"
+                        class="input"
+                        autocomplete="new-password"
+                        minlength="8"
+                        maxlength="128"
+                        required
+                        aria-describedby="new-password-hint"
+                        data-error="new-password-error"
+                      />
+                      <button
+                        id="toggle-new-password"
+                        type="button"
+                        class="btn btn-secondary"
+                        aria-pressed="false"
+                        aria-describedby="new-pw-warning"
+                      >
+                        Show
+                      </button>
+                    </div>
+                    <div id="new-password-error" class="error-msg">
+                      <span role="img" aria-label="Error">❌</span> Enter a new password with at least 8 characters.
+                    </div>
+                    <span id="new-pw-warning" class="visually-hidden">
+                      Warning: this will display your new password on the screen.
+                    </span>
+                  </div>
+
+                  <button id="save-password-btn" type="submit" class="btn btn-secondary">
+                    Update Password
+                  </button>
+                </form>
+              </section>
+            </div>
+          </div>
+
+          <!-- Tab 2: Links & Files -->
+          <div role="tabpanel" aria-labelledby="tab-resources" class="tab-panel" hidden="until-found">
+            <div class="panel-inner">
+              <section class="panel-card">
+                <h2 id="add-resource-heading">Add Link or Upload File</h2>
+                <p class="panel-subtitle">
+                  Share a submission link (such as a Google Form) or upload a downloadable template stored in Cloudflare R2.
+                </p>
+
+                <div id="add-resource-status" class="status-msg" role="status" aria-live="polite" hidden></div>
+
+                <form id="add-resource-form" aria-labelledby="add-resource-heading" method="POST">
+                  <fieldset class="choice-group">
+                    <legend>What would you like to add?</legend>
+                    <div class="choice-options">
+                      <label class="choice-item" for="type-link">
+                        <input id="type-link" type="radio" name="resourceType" value="link" checked />
+                        <span>External Link (Google Form, Docs, website)</span>
+                      </label>
+                      <label class="choice-item" for="type-file">
+                        <input id="type-file" type="radio" name="resourceType" value="file" />
+                        <span>Upload File (PDF, Word, Excel — up to 25 MB)</span>
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset class="choice-group">
+                    <legend>Category</legend>
+                    <div id="add-category-options" class="choice-options">
+                      <label class="choice-item" for="cat-opt-submissions">
+                        <input id="cat-opt-submissions" type="radio" name="categoryId" value="cat-submissions" checked />
+                        <span>Submission Links</span>
+                      </label>
+                      <label class="choice-item" for="cat-opt-templates">
+                        <input id="cat-opt-templates" type="radio" name="categoryId" value="cat-templates" />
+                        <span>Templates</span>
+                      </label>
+                      <label class="choice-item" for="cat-opt-downloads">
+                        <input id="cat-opt-downloads" type="radio" name="categoryId" value="cat-downloads" />
+                        <span>Downloads</span>
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <div class="field">
+                    <label for="res-title">Title <span aria-hidden="true">*</span></label>
+                    <span id="res-title-hint" class="hint">Use a clear name teachers immediately recognize (e.g. "Daily Attendance Form").</span>
+                    <input
+                      id="res-title"
+                      name="title"
+                      type="text"
+                      class="input"
+                      minlength="2"
+                      maxlength="140"
+                      required
+                      aria-describedby="res-title-hint"
+                      data-error="res-title-error"
+                    />
+                    <div id="res-title-error" class="error-msg">
+                      <span role="img" aria-label="Error">❌</span> Enter a title of at least 2 characters.
+                    </div>
+                  </div>
+
+                  <div class="field">
+                    <label for="res-desc">Short Description (Optional)</label>
+                    <span id="res-desc-hint" class="hint">Explain when or how teachers should use this item.</span>
+                    <input
+                      id="res-desc"
+                      name="description"
+                      type="text"
+                      class="input"
+                      maxlength="300"
+                      aria-describedby="res-desc-hint"
+                    />
+                  </div>
+
+                  <div id="url-field-group" class="field">
+                    <label for="res-url">Web Link (URL) <span aria-hidden="true">*</span></label>
+                    <span id="res-url-hint" class="hint">Must start with https:// or http://</span>
+                    <input
+                      id="res-url"
+                      name="url"
+                      type="url"
+                      class="input"
+                      placeholder="https://forms.gle/..."
+                      autocorrect="off"
+                      autocapitalize="none"
+                      spellcheck="false"
+                      required
+                      aria-describedby="res-url-hint"
+                      data-error="res-url-error"
+                    />
+                    <div id="res-url-error" class="error-msg">
+                      <span role="img" aria-label="Error">❌</span> Enter a valid link starting with https:// or http://.
+                    </div>
+                  </div>
+
+                  <div id="file-field-group" class="field" hidden>
+                    <label for="res-file">Choose File to Upload <span aria-hidden="true">*</span></label>
+                    <span id="res-file-hint" class="hint">PDF, Word (.docx), Excel (.xlsx), PowerPoint, or images up to 25 MB.</span>
+                    <input
+                      id="res-file"
+                      name="file"
+                      type="file"
+                      class="input"
+                      aria-describedby="res-file-hint"
+                      data-error="res-file-error"
+                    />
+                    <div id="res-file-error" class="error-msg">
+                      <span role="img" aria-label="Error">❌</span> Please choose a file to upload.
+                    </div>
+                  </div>
+
+                  <div class="field">
+                    <label class="choice-item" for="res-pinned">
+                      <input id="res-pinned" name="isPinned" type="checkbox" />
+                      <span>Pin to "Quick Access" at the top of the Teacher Portal</span>
+                    </label>
+                  </div>
+
+                  <button id="add-resource-btn" type="submit" class="btn btn-primary">
+                    Add to Portal
+                  </button>
+                </form>
+              </section>
+
+              <section class="panel-card">
+                <h2>Current Links &amp; Files</h2>
+                <p class="panel-subtitle">Edit details, pin important items to the top, or remove outdated links.</p>
+                <div id="list-status" class="status-msg" role="status" aria-live="polite" hidden></div>
+                <ul id="admin-resources-list" class="admin-list" role="list"></ul>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Edit Resource Modal (<dialog> per modern-web-guidance: dialog) -->
+  <dialog id="edit-dialog" aria-labelledby="edit-dialog-title">
+    <h1 id="edit-dialog-title">Edit Item</h1>
+    <div id="edit-dialog-error" class="status-msg status-error" role="alert" hidden></div>
+
+    <form id="edit-resource-form" method="POST">
+      <input id="edit-id" type="hidden" name="id" />
+
+      <fieldset class="choice-group">
+        <legend>Category</legend>
+        <div class="choice-options">
+          <label class="choice-item" for="edit-cat-submissions">
+            <input id="edit-cat-submissions" type="radio" name="editCategoryId" value="cat-submissions" />
+            <span>Submission Links</span>
+          </label>
+          <label class="choice-item" for="edit-cat-templates">
+            <input id="edit-cat-templates" type="radio" name="editCategoryId" value="cat-templates" />
+            <span>Templates</span>
+          </label>
+          <label class="choice-item" for="edit-cat-downloads">
+            <input id="edit-cat-downloads" type="radio" name="editCategoryId" value="cat-downloads" />
+            <span>Downloads</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <label for="edit-title">Title <span aria-hidden="true">*</span></label>
+        <input
+          id="edit-title"
+          name="title"
+          type="text"
+          class="input"
+          minlength="2"
+          maxlength="140"
+          required
+          autofocus
+          data-error="edit-title-error"
+        />
+        <div id="edit-title-error" class="error-msg">
+          <span role="img" aria-label="Error">❌</span> Enter a title of at least 2 characters.
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="edit-description">Short Description</label>
+        <input id="edit-description" name="description" type="text" class="input" maxlength="300" />
+      </div>
+
+      <div id="edit-url-group" class="field">
+        <label for="edit-url">Web Link (URL) <span aria-hidden="true">*</span></label>
+        <input
+          id="edit-url"
+          name="url"
+          type="url"
+          class="input"
+          autocorrect="off"
+          autocapitalize="none"
+          spellcheck="false"
+          data-error="edit-url-error"
+        />
+        <div id="edit-url-error" class="error-msg">
+          <span role="img" aria-label="Error">❌</span> Enter a valid link starting with https:// or http://.
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="choice-item" for="edit-pinned">
+          <input id="edit-pinned" name="isPinned" type="checkbox" />
+          <span>Pin to "Quick Access"</span>
+        </label>
+      </div>
+
+      <div class="dialog-actions">
+        <button id="edit-cancel-btn" type="button" class="btn btn-secondary">Cancel</button>
+        <button id="edit-save-btn" type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Delete Confirmation Modal (autofocus on safe Cancel button; resets returnValue on close) -->
+  <dialog id="delete-dialog" aria-labelledby="delete-dialog-title">
+    <h1 id="delete-dialog-title">Delete this item?</h1>
+    <p id="delete-dialog-message" style="margin: 0;"></p>
+    <form method="dialog" class="dialog-actions">
+      <button value="cancel" class="btn btn-secondary" autofocus>Cancel</button>
+      <button value="confirm" class="btn btn-danger">Delete Item</button>
+    </form>
+  </dialog>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>School Portal Administration</span>
+      <a href="/" class="footer-link">Back to Teacher Portal</a>
+    </div>
+  </footer>
+
+  <script>
+    import type { PortalPayload, Resource } from '@school-portal/shared';
+    import {
+      adminLogin,
+      changeAdminPassword,
+      clearToken,
+      createFileResource,
+      createLinkResource,
+      deleteResource,
+      fetchPortal,
+      formatFileSize,
+      getSavedToken,
+      saveToken,
+      updateResource,
+      updateSchoolSettings,
+      verifyAdminSession,
+    } from '../lib/api';
+    import { initAccessibleValidation } from '../lib/form-a11y';
+    import { initTabs } from '../lib/tabs';
+
+    initAccessibleValidation(document);
+
+    const loginSection = document.getElementById('login-section') as HTMLElement;
+    const dashboardSection = document.getElementById('dashboard-section') as HTMLDivElement;
+    const signOutBtn = document.getElementById('sign-out-btn') as HTMLButtonElement;
+    const adminSubtitle = document.getElementById('admin-school-subtitle') as HTMLParagraphElement;
+
+    // Login elements
+    const loginForm = document.getElementById('login-form') as HTMLFormElement;
+    const loginError = document.getElementById('login-error') as HTMLDivElement;
+    const loginUsername = document.getElementById('login-username') as HTMLInputElement;
+    const loginPassword = document.getElementById('login-password') as HTMLInputElement;
+    const toggleLoginPw = document.getElementById('toggle-login-password') as HTMLButtonElement;
+    const loginSubmitBtn = document.getElementById('login-submit') as HTMLButtonElement;
+
+    // Settings elements
+    const settingsForm = document.getElementById('settings-form') as HTMLFormElement;
+    const settingsStatus = document.getElementById('settings-status') as HTMLDivElement;
+    const schoolNameInput = document.getElementById('school-name-input') as HTMLInputElement;
+    const schoolTaglineInput = document.getElementById('school-tagline-input') as HTMLInputElement;
+    const schoolAnnouncementInput = document.getElementById('school-announcement-input') as HTMLTextAreaElement;
+    const saveSettingsBtn = document.getElementById('save-settings-btn') as HTMLButtonElement;
+
+    // Password form elements
+    const passwordForm = document.getElementById('password-form') as HTMLFormElement;
+    const passwordStatus = document.getElementById('password-status') as HTMLDivElement;
+    const currentPasswordInput = document.getElementById('current-password') as HTMLInputElement;
+    const newPasswordInput = document.getElementById('new-password') as HTMLInputElement;
+    const toggleNewPw = document.getElementById('toggle-new-password') as HTMLButtonElement;
+    const savePasswordBtn = document.getElementById('save-password-btn') as HTMLButtonElement;
+
+    // Add resource elements
+    const addForm = document.getElementById('add-resource-form') as HTMLFormElement;
+    const addStatus = document.getElementById('add-resource-status') as HTMLDivElement;
+    const addBtn = document.getElementById('add-resource-btn') as HTMLButtonElement;
+    const typeLinkRadio = document.getElementById('type-link') as HTMLInputElement;
+    const typeFileRadio = document.getElementById('type-file') as HTMLInputElement;
+    const urlFieldGroup = document.getElementById('url-field-group') as HTMLDivElement;
+    const fileFieldGroup = document.getElementById('file-field-group') as HTMLDivElement;
+    const resTitleInput = document.getElementById('res-title') as HTMLInputElement;
+    const resDescInput = document.getElementById('res-desc') as HTMLInputElement;
+    const resUrlInput = document.getElementById('res-url') as HTMLInputElement;
+    const resFileInput = document.getElementById('res-file') as HTMLInputElement;
+    const resPinnedInput = document.getElementById('res-pinned') as HTMLInputElement;
+
+    // Existing list elements
+    const listStatus = document.getElementById('list-status') as HTMLDivElement;
+    const resourcesList = document.getElementById('admin-resources-list') as HTMLUListElement;
+
+    // Dialogs
+    const editDialog = document.getElementById('edit-dialog') as HTMLDialogElement;
+    const editForm = document.getElementById('edit-resource-form') as HTMLFormElement;
+    const editError = document.getElementById('edit-dialog-error') as HTMLDivElement;
+    const editIdInput = document.getElementById('edit-id') as HTMLInputElement;
+    const editTitleInput = document.getElementById('edit-title') as HTMLInputElement;
+    const editDescInput = document.getElementById('edit-description') as HTMLInputElement;
+    const editUrlGroup = document.getElementById('edit-url-group') as HTMLDivElement;
+    const editUrlInput = document.getElementById('edit-url') as HTMLInputElement;
+    const editPinnedInput = document.getElementById('edit-pinned') as HTMLInputElement;
+    const editCancelBtn = document.getElementById('edit-cancel-btn') as HTMLButtonElement;
+    const editSaveBtn = document.getElementById('edit-save-btn') as HTMLButtonElement;
+
+    const deleteDialog = document.getElementById('delete-dialog') as HTMLDialogElement;
+    const deleteDialogMessage = document.getElementById('delete-dialog-message') as HTMLParagraphElement;
+
+    const adminTabsContainer = document.getElementById('admin-tabs') as HTMLDivElement;
+    initTabs(adminTabsContainer);
+
+    let authToken: string | null = null;
+    let portalData: PortalPayload | null = null;
+    let editingResource: Resource | null = null;
+    let pendingDelete: Resource | null = null;
+
+    function wirePasswordToggle(btn: HTMLButtonElement, input: HTMLInputElement): void {
+      btn.addEventListener('click', () => {
+        const revealed = btn.getAttribute('aria-pressed') === 'true';
+        btn.setAttribute('aria-pressed', revealed ? 'false' : 'true');
+        btn.textContent = revealed ? 'Show' : 'Hide';
+        input.type = revealed ? 'password' : 'text';
+      });
+    }
+
+    wirePasswordToggle(toggleLoginPw, loginPassword);
+    wirePasswordToggle(toggleNewPw, newPasswordInput);
+
+    function showStatus(el: HTMLDivElement, message: string, kind: 'success' | 'error'): void {
+      el.textContent = message;
+      el.className = `status-msg ${kind === 'success' ? 'status-success' : 'status-error'}`;
+      el.hidden = false;
+    }
+
+    function syncResourceTypeFields(): void {
+      const isFile = typeFileRadio.checked;
+      urlFieldGroup.hidden = isFile;
+      fileFieldGroup.hidden = !isFile;
+      resUrlInput.required = !isFile;
+      resFileInput.required = isFile;
+    }
+
+    typeLinkRadio.addEventListener('change', syncResourceTypeFields);
+    typeFileRadio.addEventListener('change', syncResourceTypeFields);
+    syncResourceTypeFields();
+
+    function setSignedInUI(signedIn: boolean): void {
+      loginSection.hidden = signedIn;
+      dashboardSection.hidden = !signedIn;
+      signOutBtn.hidden = !signedIn;
+    }
+
+    function renderAdminList(): void {
+      if (!portalData) return;
+      const categoryMap = new Map(portalData.categories.map((c) => [c.id, c.name]));
+
+      if (portalData.resources.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'state-card';
+        empty.textContent = 'No links or files yet. Use the form above to add your first item.';
+        resourcesList.replaceChildren(empty);
+        return;
+      }
+
+      const items = portalData.resources.map((res) => {
+        const li = document.createElement('li');
+        li.className = 'admin-item';
+
+        const info = document.createElement('div');
+        info.className = 'admin-item-info';
+
+        const badges = document.createElement('div');
+        badges.className = 'card-badges';
+
+        if (res.isPinned) {
+          const pin = document.createElement('span');
+          pin.className = 'badge badge-pinned';
+          pin.textContent = '★ Pinned';
+          badges.append(pin);
+        }
+
+        const catBadge = document.createElement('span');
+        catBadge.className = 'badge';
+        catBadge.textContent = categoryMap.get(res.categoryId) || 'Uncategorized';
+        badges.append(catBadge);
+
+        const typeBadge = document.createElement('span');
+        typeBadge.className = res.type === 'file' ? 'badge badge-file' : 'badge';
+        typeBadge.textContent = res.type === 'file' ? 'R2 File' : 'External Link';
+        badges.append(typeBadge);
+
+        const title = document.createElement('h3');
+        title.className = 'admin-item-title';
+        title.textContent = res.title;
+
+        const meta = document.createElement('p');
+        meta.className = 'admin-item-meta';
+        if (res.type === 'file') {
+          const size = formatFileSize(res.fileSize);
+          meta.textContent = size ? `${res.fileName} (${size})` : res.fileName || 'Uploaded file';
+        } else {
+          meta.textContent = res.url || '';
+        }
+
+        info.append(badges, title, meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'admin-item-actions';
+
+        const pinBtn = document.createElement('button');
+        pinBtn.type = 'button';
+        pinBtn.className = 'btn btn-secondary btn-sm';
+        pinBtn.textContent = res.isPinned ? 'Unpin' : 'Pin';
+        pinBtn.setAttribute('aria-label', `${res.isPinned ? 'Unpin' : 'Pin'} ${res.title}`);
+        pinBtn.addEventListener('click', () => void togglePin(res));
+
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'btn btn-secondary btn-sm';
+        editBtn.textContent = 'Edit';
+        editBtn.setAttribute('aria-label', `Edit ${res.title}`);
+        editBtn.addEventListener('click', () => openEditModal(res));
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn btn-danger-outline btn-sm';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.setAttribute('aria-label', `Delete ${res.title}`);
+        deleteBtn.addEventListener('click', () => openDeleteModal(res));
+
+        actions.append(pinBtn, editBtn, deleteBtn);
+        li.append(info, actions);
+        return li;
+      });
+
+      resourcesList.replaceChildren(...items);
+    }
+
+    async function loadDashboardData(): Promise<void> {
+      portalData = await fetchPortal();
+      schoolNameInput.value = portalData.settings.schoolName;
+      schoolTaglineInput.value = portalData.settings.tagline;
+      schoolAnnouncementInput.value = portalData.settings.announcement;
+      adminSubtitle.textContent = `Managing: ${portalData.settings.schoolName}`;
+      renderAdminList();
+    }
+
+    async function togglePin(res: Resource): Promise<void> {
+      if (!authToken) return;
+      try {
+        await updateResource(authToken, res.id, { isPinned: !res.isPinned });
+        await loadDashboardData();
+        showStatus(
+          listStatus,
+          res.isPinned ? `"${res.title}" removed from Quick Access.` : `"${res.title}" pinned to Quick Access.`,
+          'success'
+        );
+      } catch (err) {
+        showStatus(listStatus, err instanceof Error ? err.message : 'Failed to update item.', 'error');
+      }
+    }
+
+    function openEditModal(res: Resource): void {
+      editingResource = res;
+      editError.hidden = true;
+      editIdInput.value = res.id;
+      editTitleInput.value = res.title;
+      editDescInput.value = res.description;
+      editPinnedInput.checked = res.isPinned;
+
+      const radio = editForm.querySelector<HTMLInputElement>(
+        `input[name="editCategoryId"][value="${CSS.escape(res.categoryId)}"]`
+      );
+      if (radio) radio.checked = true;
+
+      const isLink = res.type === 'link';
+      editUrlGroup.hidden = !isLink;
+      editUrlInput.required = isLink;
+      editUrlInput.value = res.url || '';
+
+      editDialog.showModal();
+    }
+
+    editCancelBtn.addEventListener('click', () => {
+      editDialog.close();
+    });
+
+    editForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!authToken || !editingResource) return;
+
+      if (!editForm.checkValidity()) {
+        editForm.querySelector<HTMLElement>(':invalid')?.focus();
+        return;
+      }
+
+      const selectedCat = editForm.querySelector<HTMLInputElement>('input[name="editCategoryId"]:checked');
+      editSaveBtn.disabled = true;
+      editError.hidden = true;
+
+      try {
+        await updateResource(authToken, editingResource.id, {
+          categoryId: selectedCat?.value,
+          title: editTitleInput.value.trim(),
+          description: editDescInput.value.trim(),
+          url: editingResource.type === 'link' ? editUrlInput.value.trim() : undefined,
+          isPinned: editPinnedInput.checked,
+        });
+        editDialog.close();
+        await loadDashboardData();
+        showStatus(listStatus, 'Changes saved.', 'success');
+      } catch (err) {
+        showStatus(editError, err instanceof Error ? err.message : 'Could not save changes.', 'error');
+      } finally {
+        editSaveBtn.disabled = false;
+      }
+    });
+
+    function openDeleteModal(res: Resource): void {
+      pendingDelete = res;
+      deleteDialogMessage.textContent =
+        res.type === 'file'
+          ? `Are you sure you want to delete "${res.title}" and remove its uploaded file from storage?`
+          : `Are you sure you want to delete "${res.title}" from the Teacher Portal?`;
+      deleteDialog.showModal();
+    }
+
+    deleteDialog.addEventListener('close', async () => {
+      const choice = deleteDialog.returnValue;
+      // Always reset returnValue so stale values never leak on subsequent Esc dismissals
+      deleteDialog.returnValue = '';
+
+      if (choice === 'confirm' && pendingDelete && authToken) {
+        const target = pendingDelete;
+        pendingDelete = null;
+        try {
+          await deleteResource(authToken, target.id);
+          await loadDashboardData();
+          showStatus(listStatus, `"${target.title}" was deleted.`, 'success');
+        } catch (err) {
+          showStatus(listStatus, err instanceof Error ? err.message : 'Could not delete item.', 'error');
+        }
+      } else {
+        pendingDelete = null;
+      }
+    });
+
+    // Sign In
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      loginError.hidden = true;
+
+      if (!loginForm.checkValidity()) {
+        loginForm.querySelector<HTMLElement>(':invalid')?.focus();
+        return;
+      }
+
+      loginSubmitBtn.disabled = true;
+      try {
+        const result = await adminLogin(loginUsername.value.trim(), loginPassword.value);
+        authToken = result.token;
+        saveToken(result.token);
+        loginForm.reset();
+        setSignedInUI(true);
+        await loadDashboardData();
+      } catch (err) {
+        showStatus(loginError, err instanceof Error ? err.message : 'Sign-in failed.', 'error');
+      } finally {
+        loginSubmitBtn.disabled = false;
+      }
+    });
+
+    // Sign Out
+    signOutBtn.addEventListener('click', () => {
+      authToken = null;
+      clearToken();
+      setSignedInUI(false);
+      adminSubtitle.textContent = 'Manage school name, submission links, templates, and downloads';
+      loginUsername.focus();
+    });
+
+    // Save School Settings
+    settingsForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!authToken) return;
+      settingsStatus.hidden = true;
+
+      if (!settingsForm.checkValidity()) {
+        settingsForm.querySelector<HTMLElement>(':invalid')?.focus();
+        return;
+      }
+
+      saveSettingsBtn.disabled = true;
+      try {
+        const res = await updateSchoolSettings(authToken, {
+          schoolName: schoolNameInput.value.trim(),
+          tagline: schoolTaglineInput.value.trim(),
+          announcement: schoolAnnouncementInput.value.trim(),
+        });
+        adminSubtitle.textContent = `Managing: ${res.settings.schoolName}`;
+        showStatus(settingsStatus, `Saved! Teachers will now see "${res.settings.schoolName}".`, 'success');
+      } catch (err) {
+        showStatus(settingsStatus, err instanceof Error ? err.message : 'Failed to save settings.', 'error');
+      } finally {
+        saveSettingsBtn.disabled = false;
+      }
+    });
+
+    // Change Password
+    passwordForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!authToken) return;
+      passwordStatus.hidden = true;
+
+      if (!passwordForm.checkValidity()) {
+        passwordForm.querySelector<HTMLElement>(':invalid')?.focus();
+        return;
+      }
+
+      savePasswordBtn.disabled = true;
+      try {
+        await changeAdminPassword(authToken, {
+          currentPassword: currentPasswordInput.value,
+          newPassword: newPasswordInput.value,
+        });
+        passwordForm.reset();
+        showStatus(passwordStatus, 'Password updated successfully.', 'success');
+      } catch (err) {
+        showStatus(passwordStatus, err instanceof Error ? err.message : 'Could not change password.', 'error');
+      } finally {
+        savePasswordBtn.disabled = false;
+      }
+    });
+
+    // Add Link or Upload File
+    addForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!authToken) return;
+      addStatus.hidden = true;
+
+      if (!addForm.checkValidity()) {
+        addForm.querySelector<HTMLElement>(':invalid')?.focus();
+        return;
+      }
+
+      const selectedCat = addForm.querySelector<HTMLInputElement>('input[name="categoryId"]:checked');
+      if (!selectedCat) return;
+
+      addBtn.disabled = true;
+      try {
+        if (typeFileRadio.checked) {
+          const file = resFileInput.files?.[0];
+          if (!file) {
+            resFileInput.focus();
+            return;
+          }
+          const formData = new FormData();
+          formData.append('categoryId', selectedCat.value);
+          formData.append('title', resTitleInput.value.trim());
+          formData.append('description', resDescInput.value.trim());
+          formData.append('isPinned', String(resPinnedInput.checked));
+          formData.append('file', file);
+          await createFileResource(authToken, formData);
+        } else {
+          await createLinkResource(authToken, {
+            categoryId: selectedCat.value,
+            title: resTitleInput.value.trim(),
+            description: resDescInput.value.trim(),
+            url: resUrlInput.value.trim(),
+            isPinned: resPinnedInput.checked,
+          });
+        }
+
+        addForm.reset();
+        syncResourceTypeFields();
+        await loadDashboardData();
+        showStatus(addStatus, 'Added! It is now visible on the Teacher Portal.', 'success');
+      } catch (err) {
+        showStatus(addStatus, err instanceof Error ? err.message : 'Could not add item.', 'error');
+      } finally {
+        addBtn.disabled = false;
+      }
+    });
+
+    // Restore saved session on load
+    async function bootstrap(): Promise<void> {
+      const saved = getSavedToken();
+      if (!saved) {
+        setSignedInUI(false);
+        return;
+      }
+      const session = await verifyAdminSession(saved).catch(() => null);
+      if (session) {
+        authToken = saved;
+        setSignedInUI(true);
+        await loadDashboardData();
+      } else {
+        clearToken();
+        setSignedInUI(false);
+      }
+    }
+
+    void bootstrap();
+  </script>
+</BaseLayout>
