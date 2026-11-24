@@ -7,7 +7,7 @@
     {
       "binding": "DB",
       "database_name": "school-portal-db",
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "database_id": "8d83c05e-8602-498f-b8b6-8a19adb421f7",
       "migrations_dir": "migrations"
     }
   ],
