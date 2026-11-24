@@ -615,8 +615,100 @@ main {
 }
 
 :is(.input, .textarea, .select):is(:user-invalid, .user-invalid-fallback) + .error-msg,
-.password-row:has(input:is(:user-invalid, .user-invalid-fallback)) + .error-msg {
+.password-row:has(input:is(:user-invalid, .user-invalid-fallback)) + .error-msg,
+.file-dropzone:has(input:is(:user-invalid, .user-invalid-fallback)) + .error-msg {
   display: block;
+}
+
+/* Drag-and-drop file upload zone */
+.file-input-sr {
+  position: absolute;
+  clip-path: inset(50%);
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  white-space: nowrap;
+}
+
+.file-dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-block-size: 148px;
+  padding: 1.5rem 1.25rem;
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.file-dropzone:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.file-dropzone:has(.file-input-sr:focus-visible) {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.file-dropzone.is-dragover {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.file-dropzone.has-file {
+  border-style: solid;
+  border-color: var(--success-border);
+  background: var(--success-bg);
+}
+
+.file-dropzone:has(input:is(:user-invalid, .user-invalid-fallback)) {
+  border-style: solid;
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+
+.dropzone-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  pointer-events: none;
+}
+
+.dropzone-icon {
+  color: var(--accent);
+}
+
+.file-dropzone.has-file .dropzone-icon {
+  color: var(--success);
+}
+
+.dropzone-title {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.dropzone-meta {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+}
+
+.dropzone-clear {
+  margin-block-start: 0.25rem;
 }
 
 fieldset.choice-group {

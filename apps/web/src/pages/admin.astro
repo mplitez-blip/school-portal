@@ -336,16 +336,45 @@ import BaseLayout from '../layouts/BaseLayout.astro';
                   <div id="file-field-group" class="field" hidden>
                     <label for="res-file">Choose File to Upload <span aria-hidden="true">*</span></label>
                     <span id="res-file-hint" class="hint">PDF, Word (.docx), Excel (.xlsx), PowerPoint, or images up to 25 MB.</span>
-                    <input
-                      id="res-file"
-                      name="file"
-                      type="file"
-                      class="input"
-                      aria-describedby="res-file-hint"
-                      data-error="res-file-error"
-                    />
+                    <div id="file-dropzone" class="file-dropzone">
+                      <input
+                        id="res-file"
+                        name="file"
+                        type="file"
+                        class="file-input-sr"
+                        aria-describedby="res-file-hint"
+                        data-error="res-file-error"
+                      />
+                      <div class="dropzone-body">
+                        <svg
+                          class="dropzone-icon"
+                          width="32"
+                          height="32"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="17 8 12 3 7 8" />
+                          <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <p id="file-dropzone-prompt" class="dropzone-title">
+                          <strong>Drag and drop a file here</strong>, or click to browse
+                        </p>
+                        <p id="file-dropzone-status" class="dropzone-meta" role="status" aria-live="polite">
+                          No file chosen yet (max 25 MB)
+                        </p>
+                      </div>
+                      <button id="file-clear-btn" type="button" class="btn btn-secondary btn-sm dropzone-clear" hidden>
+                        Remove file
+                      </button>
+                    </div>
                     <div id="res-file-error" class="error-msg">
-                      <span role="img" aria-label="Error">❌</span> Please choose a file to upload.
+                      <span role="img" aria-label="Error">❌</span> <span id="res-file-error-text">Please choose a file to upload.</span>
                     </div>
                   </div>
 
@@ -535,6 +564,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const resDescInput = document.getElementById('res-desc') as HTMLInputElement;
     const resUrlInput = document.getElementById('res-url') as HTMLInputElement;
     const resFileInput = document.getElementById('res-file') as HTMLInputElement;
+    const fileDropzone = document.getElementById('file-dropzone') as HTMLDivElement;
+    const fileDropzonePrompt = document.getElementById('file-dropzone-prompt') as HTMLParagraphElement;
+    const fileDropzoneStatus = document.getElementById('file-dropzone-status') as HTMLParagraphElement;
+    const fileClearBtn = document.getElementById('file-clear-btn') as HTMLButtonElement;
+    const resFileErrorText = document.getElementById('res-file-error-text') as HTMLSpanElement;
     const resPinnedInput = document.getElementById('res-pinned') as HTMLInputElement;
 
     // Existing list elements
@@ -583,17 +617,123 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       el.hidden = false;
     }
 
+    const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+    let dragDepth = 0;
+
+    function setDefaultDropzonePrompt(): void {
+      const strong = document.createElement('strong');
+      strong.textContent = 'Drag and drop a file here';
+      fileDropzonePrompt.replaceChildren(strong, document.createTextNode(', or click to browse'));
+    }
+
+    function syncFileDropzoneUI(): void {
+      const file = resFileInput.files?.[0];
+      if (!file) {
+        resFileInput.setCustomValidity('');
+        resFileErrorText.textContent = 'Please choose a file to upload.';
+        fileDropzone.classList.remove('has-file');
+        setDefaultDropzonePrompt();
+        fileDropzoneStatus.textContent = 'No file chosen yet (max 25 MB)';
+        fileClearBtn.hidden = true;
+        return;
+      }
+
+      if (file.size > MAX_UPLOAD_BYTES) {
+        const msg = 'File is too large. Maximum upload size is 25 MB.';
+        resFileInput.setCustomValidity(msg);
+        resFileErrorText.textContent = msg;
+      } else {
+        resFileInput.setCustomValidity('');
+        resFileErrorText.textContent = 'Please choose a file to upload.';
+      }
+
+      resFileInput.dispatchEvent(new Event('input', { bubbles: true }));
+      fileDropzone.classList.add('has-file');
+      fileDropzonePrompt.textContent = `Selected: ${file.name}`;
+      const sizeLabel = formatFileSize(file.size);
+      fileDropzoneStatus.textContent = sizeLabel ? `${sizeLabel} — drop another file or click to replace` : 'File ready to upload';
+      fileClearBtn.hidden = false;
+    }
+
+    function applyDroppedFile(file: File): void {
+      try {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        resFileInput.files = dt.files;
+      } catch {
+        // Fallback if DataTransfer assignment is unavailable
+      }
+      resFileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    fileDropzone.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('#file-clear-btn') || target === resFileInput) return;
+      resFileInput.click();
+    });
+
+    fileDropzone.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragDepth += 1;
+      fileDropzone.classList.add('is-dragover');
+      fileDropzonePrompt.textContent = 'Drop your file here to attach';
+    });
+
+    fileDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+      fileDropzone.classList.add('is-dragover');
+    });
+
+    fileDropzone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) {
+        fileDropzone.classList.remove('is-dragover');
+        syncFileDropzoneUI();
+      }
+    });
+
+    fileDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragDepth = 0;
+      fileDropzone.classList.remove('is-dragover');
+      const dropped = e.dataTransfer?.files?.[0];
+      if (dropped) {
+        applyDroppedFile(dropped);
+      } else {
+        syncFileDropzoneUI();
+      }
+    });
+
+    resFileInput.addEventListener('change', syncFileDropzoneUI);
+
+    fileClearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      resFileInput.value = '';
+      syncFileDropzoneUI();
+      resFileInput.focus();
+    });
+
     function syncResourceTypeFields(): void {
       const isFile = typeFileRadio.checked;
       urlFieldGroup.hidden = isFile;
       fileFieldGroup.hidden = !isFile;
       resUrlInput.required = !isFile;
       resFileInput.required = isFile;
+      if (!isFile) {
+        resFileInput.setCustomValidity('');
+      } else {
+        syncFileDropzoneUI();
+      }
     }
 
     typeLinkRadio.addEventListener('change', syncResourceTypeFields);
     typeFileRadio.addEventListener('change', syncResourceTypeFields);
     syncResourceTypeFields();
+    syncFileDropzoneUI();
 
     function setSignedInUI(signedIn: boolean): void {
       loginSection.hidden = signedIn;
@@ -924,6 +1064,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
         addForm.reset();
         syncResourceTypeFields();
+        syncFileDropzoneUI();
         await loadDashboardData();
         showStatus(addStatus, 'Added! It is now visible on the Teacher Portal.', 'success');
       } catch (err) {
