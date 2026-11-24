@@ -129,6 +129,27 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     </section>
   </main>
 
+  <!-- Full File Preview Modal (<dialog closedby="any"> per modern-web-guidance: dialog) -->
+  <dialog id="preview-dialog" class="preview-dialog" {...({ closedby: 'any' } as any)} aria-labelledby="preview-dialog-title">
+    <div class="preview-dialog-header">
+      <div class="preview-dialog-heading">
+        <h1 id="preview-dialog-title">File Preview</h1>
+        <p id="preview-dialog-meta" class="preview-dialog-meta"></p>
+      </div>
+      <div class="preview-dialog-controls">
+        <a id="preview-dialog-download" class="btn btn-primary btn-sm" href="#" download>
+          Download <span aria-hidden="true">↓</span>
+        </a>
+        <form method="dialog">
+          <button value="close" class="btn btn-secondary btn-sm" autofocus>Close</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="preview-dialog-toolbar" class="preview-dialog-toolbar" hidden></div>
+    <div id="preview-dialog-body" class="preview-dialog-body"></div>
+  </dialog>
+
   <footer class="site-footer">
     <div class="container footer-inner">
       <span id="footer-school-name">School Teacher Portal</span>
@@ -139,6 +160,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <script>
     import type { Category, PortalPayload, Resource, Subcategory } from '@school-portal/shared';
     import { fetchPortal, formatFileSize, getFileDownloadUrl, resolveApiAssetUrl } from '../lib/api';
+    import {
+      createCardPreviewElement,
+      detectPreviewKind,
+      renderModalPreview,
+      type PreviewKind,
+    } from '../lib/file-preview';
     import { initTabs } from '../lib/tabs';
 
     const brandIconWrap = document.getElementById('brand-icon-wrap') as HTMLDivElement;
@@ -157,6 +184,60 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const pinnedSection = document.getElementById('pinned-section') as HTMLElement;
     const pinnedList = document.getElementById('pinned-list') as HTMLUListElement;
     const tabsContainer = document.getElementById('portal-tabs') as HTMLDivElement;
+
+    const previewDialog = document.getElementById('preview-dialog') as HTMLDialogElement;
+    const previewDialogTitle = document.getElementById('preview-dialog-title') as HTMLHeadingElement;
+    const previewDialogMeta = document.getElementById('preview-dialog-meta') as HTMLParagraphElement;
+    const previewDialogDownload = document.getElementById('preview-dialog-download') as HTMLAnchorElement;
+    const previewDialogToolbar = document.getElementById('preview-dialog-toolbar') as HTMLDivElement;
+    const previewDialogBody = document.getElementById('preview-dialog-body') as HTMLDivElement;
+
+    // Fallback for browsers without native <dialog closedby="any"> light-dismiss (e.g. Safari)
+    if (!('closedBy' in HTMLDialogElement.prototype)) {
+      const outside = (e: PointerEvent, dialog: HTMLDialogElement) => {
+        const r = dialog.getBoundingClientRect();
+        return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+      };
+      let pressedOutside = false;
+      previewDialog.addEventListener('pointerdown', (e) => {
+        pressedOutside = outside(e, previewDialog);
+      });
+      previewDialog.addEventListener('pointerup', (e) => {
+        if (pressedOutside && outside(e, previewDialog)) previewDialog.close();
+      });
+    }
+
+    previewDialog.addEventListener('close', () => {
+      previewDialog.returnValue = '';
+    });
+
+    let activePreviewToken = 0;
+
+    function openPreviewModal(resource: Resource, kind: PreviewKind): void {
+      const token = ++activePreviewToken;
+      previewDialogTitle.textContent = resource.title;
+      const sizeLabel = formatFileSize(resource.fileSize);
+      previewDialogMeta.textContent = [
+        resource.fileName || '',
+        sizeLabel ? `(${sizeLabel})` : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+      previewDialogDownload.href = getFileDownloadUrl(resource.id);
+      previewDialogDownload.setAttribute('download', resource.fileName || '');
+
+      previewDialog.showModal();
+      void renderModalPreview(previewDialogBody, previewDialogToolbar, resource, kind).catch((err) => {
+        if (token !== activePreviewToken) return;
+        const msg = document.createElement('p');
+        msg.className = 'preview-modal-state';
+        msg.textContent =
+          err instanceof Error
+            ? `Could not render preview (${err.message}). Use the Download button above instead.`
+            : 'Could not render preview. Use the Download button above instead.';
+        previewDialogBody.replaceChildren(msg);
+      });
+    }
 
     const tabsController = initTabs(tabsContainer);
 
@@ -218,6 +299,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           : 'Click below to open this link in a new tab.');
 
       li.append(badges, title, desc);
+
+      const previewKind = detectPreviewKind(resource);
+      if (previewKind) {
+        li.append(createCardPreviewElement(resource, previewKind, openPreviewModal));
+      }
 
       if (resource.type === 'file' && resource.fileName) {
         const meta = document.createElement('div');
