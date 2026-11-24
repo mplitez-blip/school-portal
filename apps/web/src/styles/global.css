@@ -625,7 +625,7 @@ main {
 
 .card-preview-stage {
   position: relative;
-  block-size: 176px;
+  block-size: 196px;
   overflow: hidden;
   background: #ffffff;
   display: flex;
@@ -637,9 +637,10 @@ main {
   content: "";
   position: absolute;
   inset: auto 0 0;
-  block-size: 36px;
+  block-size: 32px;
   background: linear-gradient(to bottom, transparent, rgb(255 255 255 / 0.92));
   pointer-events: none;
+  z-index: 1;
 }
 
 .card-preview-stage.is-loading {
@@ -679,76 +680,90 @@ main {
   background: #ffffff;
 }
 
-.preview-docx-mini {
-  width: 100%;
-  height: 100%;
-  padding: 0.75rem 0.85rem;
-  font-size: 0.7rem;
-  line-height: 1.35;
-  color: var(--ink);
+/* Full-page virtual canvas scaled down to fit card width like a front-page screenshot */
+.preview-scaled-page {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: max-content;
+  transform-origin: top left;
   background: #ffffff;
-  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
 }
 
-.preview-docx-mini h1,
-.preview-docx-mini h2,
-.preview-docx-mini h3,
-.preview-docx-mini h4 {
-  margin: 0 0 0.25rem;
-  font-size: 0.82rem;
-  line-height: 1.25;
+.docx-first-page-only section {
+  margin: 0 !important;
+  box-shadow: none !important;
 }
 
-.preview-docx-mini p,
-.preview-docx-mini ul,
-.preview-docx-mini ol {
-  margin: 0 0 0.3rem;
-}
-
-.preview-docx-mini table {
+.preview-modal-docx-scale-wrap {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 0.65rem;
-  margin-block: 0.25rem;
+  overflow-x: auto;
 }
 
-.preview-docx-mini th,
-.preview-docx-mini td {
-  border: 1px solid var(--border);
-  padding: 0.15rem 0.25rem;
-  text-align: left;
+.preview-modal-docx-host > div {
+  background: transparent !important;
+  padding: 0.5rem 0 !important;
 }
 
-.preview-xlsx-mini {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+.preview-modal-docx-host section {
+  box-shadow: var(--shadow-sm) !important;
+  margin-block-end: 1rem !important;
+}
+
+/* Authentic Excel front-page grid with merged cells, column letters, and zero awkward wrapping */
+.excel-sheet-surface {
   background: #ffffff;
+  color: #111827;
 }
 
-.preview-sheet-table {
-  width: 100%;
+.excel-grid-table {
   border-collapse: collapse;
-  font-size: 0.72rem;
+  table-layout: fixed;
+  font-family: "Calibri", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 12px;
   line-height: 1.3;
-  color: var(--ink);
+  color: #111827;
+  background: #ffffff;
 }
 
-.preview-sheet-table th,
-.preview-sheet-table td {
-  border: 1px solid var(--border);
-  padding: 0.22rem 0.38rem;
-  text-align: left;
-  white-space: nowrap;
-  max-inline-size: 130px;
+.excel-grid-table th,
+.excel-grid-table td {
+  border: 1px solid #d0d7de;
+  padding: 3px 6px;
+  height: 22px;
+  vertical-align: middle;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.preview-sheet-table thead th {
-  background: var(--surface-subtle);
+.excel-corner-cell,
+.excel-col-header,
+.excel-row-header {
+  background: #f3f4f6;
+  color: #4b5563;
+  font-weight: 600;
+  font-size: 11px;
+  text-align: center;
+  border-color: #cbd5e1;
+}
+
+.excel-grid-table td.is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.excel-grid-table td.is-title-span {
+  text-align: center;
   font-weight: 700;
-  color: var(--ink);
+  background: #f8fafc;
+}
+
+.excel-grid-table td.is-multiline {
+  white-space: pre-wrap;
+  line-height: 1.25;
 }
 
 .preview-type-pill {

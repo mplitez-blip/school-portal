@@ -14,7 +14,9 @@
     "@microsoft/focusgroup-polyfill": "^1.6.0",
     "@school-portal/shared": "*",
     "astro": "^5.7.10",
+    "docx-preview": "^0.4.1",
     "dompurify": "^3.5.0",
+    "jszip": "^3.10.2",
     "mammoth": "^1.13.0",
     "pdfjs-dist": "^6.5.438",
     "xlsx": "^0.18.5"
