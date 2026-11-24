@@ -32,6 +32,12 @@ export function getFileDownloadUrl(resourceId: string): string {
   return `${API_URL}/api/files/${encodeURIComponent(resourceId)}`;
 }
 
+export function resolveApiAssetUrl(pathOrUrl: string | null | undefined): string | null {
+  if (!pathOrUrl) return null;
+  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) return pathOrUrl;
+  return `${API_URL}${pathOrUrl.startsWith('/') ? '' : '/'}${pathOrUrl}`;
+}
+
 async function parseError(res: Response): Promise<string> {
   try {
     const data = (await res.json()) as { error?: string };
@@ -89,6 +95,34 @@ export async function updateSchoolSettings(
   return (await res.json()) as { settings: SchoolSettings };
 }
 
+export async function uploadSchoolLogo(
+  token: string,
+  file: File
+): Promise<{ settings: SchoolSettings }> {
+  const formData = new FormData();
+  formData.append('logo', file);
+  const res = await fetch(`${API_URL}/api/admin/settings/logo`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as { settings: SchoolSettings };
+}
+
+export async function deleteSchoolLogo(token: string): Promise<{ settings: SchoolSettings }> {
+  const res = await fetch(`${API_URL}/api/admin/settings/logo`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as { settings: SchoolSettings };
+}
+
 export async function changeAdminPassword(
   token: string,
   input: { currentPassword: string; newPassword: string }
@@ -108,6 +142,7 @@ export async function createLinkResource(
   token: string,
   input: {
     categoryId: string;
+    subcategoryId?: string | null;
     title: string;
     description: string;
     url: string;
@@ -146,6 +181,7 @@ export async function updateResource(
   id: string,
   input: {
     categoryId?: string;
+    subcategoryId?: string | null;
     title?: string;
     description?: string;
     url?: string;

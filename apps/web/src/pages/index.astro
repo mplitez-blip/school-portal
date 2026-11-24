@@ -8,11 +8,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand">
-        <div class="brand-icon" aria-hidden="true">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <div id="brand-icon-wrap" class="brand-icon" aria-hidden="true">
+          <svg id="default-brand-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
             <path d="M6 12v5c3 3 9 3 12 0v-5" />
           </svg>
+          <img id="school-logo-img" class="brand-logo" width="48" height="48" alt="" decoding="async" hidden />
         </div>
         <div>
           <h1 id="main-content" tabindex="-1" class="brand-title">School Teacher Portal</h1>
@@ -108,6 +109,13 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           </div>
           <div role="tabpanel" aria-labelledby="tab-templates" class="tab-panel" data-category-id="cat-templates" hidden="until-found">
             <div class="panel-inner">
+              <div
+                class="subcat-filter"
+                role="group"
+                aria-label="Filter Templates by subcategory"
+                data-subcat-filter-for="cat-templates"
+                hidden
+              ></div>
               <ul class="card-grid" role="list" data-list-for="cat-templates"></ul>
             </div>
           </div>
@@ -129,10 +137,13 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   </footer>
 
   <script>
-    import type { Category, PortalPayload, Resource } from '@school-portal/shared';
-    import { fetchPortal, formatFileSize, getFileDownloadUrl } from '../lib/api';
+    import type { Category, PortalPayload, Resource, Subcategory } from '@school-portal/shared';
+    import { fetchPortal, formatFileSize, getFileDownloadUrl, resolveApiAssetUrl } from '../lib/api';
     import { initTabs } from '../lib/tabs';
 
+    const brandIconWrap = document.getElementById('brand-icon-wrap') as HTMLDivElement;
+    const defaultBrandIcon = document.getElementById('default-brand-icon') as unknown as SVGSVGElement;
+    const schoolLogoImg = document.getElementById('school-logo-img') as HTMLImageElement;
     const schoolNameEl = document.getElementById('main-content') as HTMLHeadingElement;
     const schoolTaglineEl = document.getElementById('school-tagline') as HTMLParagraphElement;
     const footerSchoolNameEl = document.getElementById('footer-school-name') as HTMLSpanElement;
@@ -151,8 +162,13 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
     let portalData: PortalPayload | null = null;
     let searchAnnounceTimer: number | undefined;
+    const selectedSubcategoryByCategory = new Map<string, string>();
 
-    function createResourceCard(resource: Resource, categoryMap: Map<string, Category>): HTMLLIElement {
+    function createResourceCard(
+      resource: Resource,
+      categoryMap: Map<string, Category>,
+      subcategoryMap: Map<string, Subcategory>
+    ): HTMLLIElement {
       const li = document.createElement('li');
       li.className = resource.isPinned ? 'resource-card is-pinned' : 'resource-card';
 
@@ -172,6 +188,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         catBadge.className = 'badge';
         catBadge.textContent = category.name;
         badges.append(catBadge);
+      }
+
+      const subcategory = resource.subcategoryId ? subcategoryMap.get(resource.subcategoryId) : undefined;
+      if (subcategory) {
+        const subBadge = document.createElement('span');
+        subBadge.className = 'badge badge-subcat';
+        subBadge.textContent = subcategory.name;
+        badges.append(subBadge);
       }
 
       if (resource.type === 'file') {
@@ -251,15 +275,19 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
       const normalized = query.trim().toLowerCase();
       const categoryMap = new Map(portalData.categories.map((cat) => [cat.id, cat]));
+      const subcategories = portalData.subcategories || [];
+      const subcategoryMap = new Map(subcategories.map((sub) => [sub.id, sub]));
 
       const filtered = portalData.resources.filter((res) => {
         if (!normalized) return true;
         const catName = categoryMap.get(res.categoryId)?.name.toLowerCase() || '';
+        const subName = res.subcategoryId ? (subcategoryMap.get(res.subcategoryId)?.name.toLowerCase() || '') : '';
         return (
           res.title.toLowerCase().includes(normalized) ||
           res.description.toLowerCase().includes(normalized) ||
           (res.fileName || '').toLowerCase().includes(normalized) ||
-          catName.includes(normalized)
+          catName.includes(normalized) ||
+          subName.includes(normalized)
         );
       });
 
@@ -267,7 +295,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       const pinned = filtered.filter((r) => r.isPinned);
       if (!normalized && pinned.length > 0) {
         pinnedSection.hidden = false;
-        pinnedList.replaceChildren(...pinned.map((r) => createResourceCard(r, categoryMap)));
+        pinnedList.replaceChildren(...pinned.map((r) => createResourceCard(r, categoryMap, subcategoryMap)));
       } else {
         pinnedSection.hidden = true;
         pinnedList.replaceChildren();
@@ -287,28 +315,87 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             )
           );
         } else {
-          allList.replaceChildren(...filtered.map((r) => createResourceCard(r, categoryMap)));
+          allList.replaceChildren(...filtered.map((r) => createResourceCard(r, categoryMap, subcategoryMap)));
         }
       }
 
-      // Render each category tab
+      // Render each category tab (with optional subcategory filter bar)
       for (const cat of portalData.categories) {
-        const items = filtered.filter((r) => r.categoryId === cat.id);
+        const catItems = filtered.filter((r) => r.categoryId === cat.id);
         const countEl = document.querySelector<HTMLSpanElement>(`[data-count-for="${CSS.escape(cat.id)}"]`);
         const listEl = document.querySelector<HTMLUListElement>(`[data-list-for="${CSS.escape(cat.id)}"]`);
+        const filterBar = document.querySelector<HTMLDivElement>(
+          `[data-subcat-filter-for="${CSS.escape(cat.id)}"]`
+        );
 
-        if (countEl) countEl.textContent = String(items.length);
+        if (countEl) countEl.textContent = String(catItems.length);
+
+        const catSubcats = subcategories.filter((sub) => sub.categoryId === cat.id);
+        let activeSubId = selectedSubcategoryByCategory.get(cat.id) || 'all';
+        if (activeSubId !== 'all' && !catSubcats.some((s) => s.id === activeSubId)) {
+          activeSubId = 'all';
+          selectedSubcategoryByCategory.set(cat.id, 'all');
+        }
+
+        if (filterBar) {
+          if (catSubcats.length > 0) {
+            filterBar.hidden = false;
+            const makeFilterBtn = (id: string, label: string, count: number): HTMLButtonElement => {
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'subcat-btn';
+              const isSelected = activeSubId === id;
+              btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+
+              const textSpan = document.createElement('span');
+              textSpan.textContent = label;
+              const badgeSpan = document.createElement('span');
+              badgeSpan.className = 'subcat-count';
+              badgeSpan.textContent = String(count);
+
+              btn.append(textSpan, badgeSpan);
+              btn.addEventListener('click', () => {
+                selectedSubcategoryByCategory.set(cat.id, id);
+                renderPortal(searchInput.value, false);
+              });
+              return btn;
+            };
+
+            const buttons: HTMLButtonElement[] = [
+              makeFilterBtn('all', `All ${cat.name}`, catItems.length),
+              ...catSubcats.map((sub) =>
+                makeFilterBtn(
+                  sub.id,
+                  sub.name,
+                  catItems.filter((item) => item.subcategoryId === sub.id).length
+                )
+              ),
+            ];
+            filterBar.replaceChildren(...buttons);
+          } else {
+            filterBar.hidden = true;
+            filterBar.replaceChildren();
+          }
+        }
+
+        const visibleItems =
+          activeSubId === 'all'
+            ? catItems
+            : catItems.filter((item) => item.subcategoryId === activeSubId);
+
         if (listEl) {
-          if (items.length === 0) {
+          if (visibleItems.length === 0) {
+            const activeSubName = activeSubId === 'all' ? '' : subcategoryMap.get(activeSubId)?.name || '';
+            const scopeLabel = activeSubName || cat.name.toLowerCase();
             listEl.replaceChildren(
               createEmptyCard(
                 normalized
-                  ? `No ${cat.name.toLowerCase()} matched "${query.trim()}".`
-                  : `No ${cat.name.toLowerCase()} available yet.`
+                  ? `No ${scopeLabel} matched "${query.trim()}".`
+                  : `No ${scopeLabel} available yet.`
               )
             );
           } else {
-            listEl.replaceChildren(...items.map((r) => createResourceCard(r, categoryMap)));
+            listEl.replaceChildren(...visibleItems.map((r) => createResourceCard(r, categoryMap, subcategoryMap)));
           }
         }
       }
@@ -329,12 +416,32 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       tabsController.refreshScrollHints();
     }
 
+    function applyBrandLogo(logoUrl: string | null): void {
+      const resolved = resolveApiAssetUrl(logoUrl);
+      if (resolved) {
+        schoolLogoImg.src = resolved;
+        schoolLogoImg.hidden = false;
+        defaultBrandIcon.style.display = 'none';
+        brandIconWrap.classList.add('has-logo');
+      } else {
+        schoolLogoImg.removeAttribute('src');
+        schoolLogoImg.hidden = true;
+        defaultBrandIcon.style.display = '';
+        brandIconWrap.classList.remove('has-logo');
+      }
+    }
+
+    schoolLogoImg.addEventListener('error', () => {
+      applyBrandLogo(null);
+    });
+
     async function loadPortal(): Promise<void> {
       try {
         portalErrorEl.hidden = true;
         portalData = await fetchPortal();
 
         const { settings } = portalData;
+        applyBrandLogo(settings.logoUrl);
         schoolNameEl.textContent = settings.schoolName;
         footerSchoolNameEl.textContent = settings.schoolName;
         document.title = `${settings.schoolName} | Teacher Portal`;

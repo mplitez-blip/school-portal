@@ -9,10 +9,26 @@ import {
   UpdateSettingsInputSchema,
 } from '@school-portal/shared';
 import { createAdminToken, hashPassword, verifyAdminToken, verifyPassword } from './auth';
-import { ensureDefaultAdmin, getPortalPayload, mapResourceRow, type ResourceRow, type UserRow } from './db';
+import {
+  ensureDefaultAdmin,
+  getPortalPayload,
+  mapResourceRow,
+  mapSettingsRow,
+  type ResourceRow,
+  type SettingsRow,
+  type UserRow,
+} from './db';
 import type { Env, JwtUserPayload } from './types';
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
+const MAX_LOGO_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_LOGO_TYPES: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/avif': 'avif',
+};
 
 type AppVariables = {
   admin: JwtUserPayload;
@@ -42,6 +58,23 @@ function sanitizeFileName(name: string): string {
   return cleaned.slice(0, 120) || 'download';
 }
 
+async function resolveSubcategoryId(
+  db: D1Database,
+  categoryId: string,
+  rawSubcategoryId: string | null | undefined
+): Promise<{ ok: true; value: string | null } | { ok: false; error: string }> {
+  const trimmed = (rawSubcategoryId || '').trim();
+  if (!trimmed) return { ok: true, value: null };
+  const sub = await db
+    .prepare('SELECT id FROM subcategories WHERE id = ? AND category_id = ?')
+    .bind(trimmed, categoryId)
+    .first<{ id: string }>();
+  if (!sub) {
+    return { ok: false, error: 'Selected subcategory does not belong to the chosen category.' };
+  }
+  return { ok: true, value: sub.id };
+}
+
 // Health check
 app.get('/api/health', (c) => {
   return c.json({ ok: true, service: 'school-portal-api' });
@@ -51,6 +84,39 @@ app.get('/api/health', (c) => {
 app.get('/api/portal', async (c) => {
   const payload = await getPortalPayload(c.env.DB);
   return c.json(payload);
+});
+
+// Public school logo streamed directly from Cloudflare R2
+app.get('/api/logo', async (c) => {
+  const row = await c.env.DB.prepare('SELECT logo_key, logo_mime_type FROM settings WHERE id = 1').first<
+    Pick<SettingsRow, 'logo_key' | 'logo_mime_type'>
+  >();
+
+  if (!row || !row.logo_key) {
+    return c.json({ error: 'Logo not found.' }, 404);
+  }
+
+  const object = await c.env.FILES.get(row.logo_key);
+  if (!object) {
+    return c.json({ error: 'Logo file is missing from storage.' }, 404);
+  }
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('etag', object.httpEtag);
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set(
+    'Content-Type',
+    row.logo_mime_type && row.logo_mime_type in ALLOWED_LOGO_TYPES
+      ? row.logo_mime_type
+      : 'image/png'
+  );
+  headers.set(
+    'Cache-Control',
+    c.req.query('v') ? 'public, max-age=31536000, immutable' : 'public, max-age=3600'
+  );
+
+  return new Response(object.body, { status: 200, headers });
 });
 
 // Public file download streamed directly from Cloudflare R2
@@ -217,14 +283,93 @@ app.patch('/api/admin/settings', async (c) => {
     .bind(parsed.data.schoolName, parsed.data.tagline, parsed.data.announcement, now)
     .run();
 
-  return c.json({
-    settings: {
-      schoolName: parsed.data.schoolName,
-      tagline: parsed.data.tagline,
-      announcement: parsed.data.announcement,
-      updatedAt: now,
-    },
+  const updated = await c.env.DB.prepare(
+    'SELECT school_name, tagline, announcement, logo_key, logo_mime_type, updated_at FROM settings WHERE id = 1'
+  ).first<SettingsRow>();
+
+  return c.json({ settings: mapSettingsRow(updated) });
+});
+
+// Admin: Upload or replace school logo in R2
+app.post('/api/admin/settings/logo', async (c) => {
+  const contentType = c.req.header('Content-Type') || '';
+  if (!contentType.includes('multipart/form-data')) {
+    return c.json({ error: 'Please upload the logo as multipart/form-data.' }, 400);
+  }
+
+  const formData = await c.req.formData();
+  const rawFile = formData.get('logo') as unknown;
+  const file = rawFile instanceof File ? rawFile : null;
+
+  if (!file || file.size === 0) {
+    return c.json({ error: 'Please choose an image file to upload.' }, 400);
+  }
+
+  if (file.size > MAX_LOGO_BYTES) {
+    return c.json({ error: 'Logo image is too large. Maximum size is 5 MB.' }, 400);
+  }
+
+  const mimeType = (file.type || '').toLowerCase();
+  const ext = ALLOWED_LOGO_TYPES[mimeType];
+  if (!ext) {
+    return c.json({ error: 'Unsupported image type. Please upload a PNG, JPG, WebP, GIF, or AVIF image.' }, 400);
+  }
+
+  const existing = await c.env.DB.prepare('SELECT logo_key FROM settings WHERE id = 1').first<
+    Pick<SettingsRow, 'logo_key'>
+  >();
+
+  const logoKey = `branding/logo-${crypto.randomUUID()}.${ext}`;
+  await c.env.FILES.put(logoKey, await file.arrayBuffer(), {
+    httpMetadata: { contentType: mimeType },
+    customMetadata: { originalName: sanitizeFileName(file.name) },
   });
+
+  const now = new Date().toISOString();
+  await c.env.DB.prepare(
+    `INSERT INTO settings (id, school_name, tagline, announcement, logo_key, logo_mime_type, updated_at)
+     VALUES (1, 'School Portal', 'Teacher Resource & Submission Hub', '', ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       logo_key = excluded.logo_key,
+       logo_mime_type = excluded.logo_mime_type,
+       updated_at = excluded.updated_at`
+  )
+    .bind(logoKey, mimeType, now)
+    .run();
+
+  if (existing?.logo_key && existing.logo_key !== logoKey) {
+    await c.env.FILES.delete(existing.logo_key).catch(() => undefined);
+  }
+
+  const updated = await c.env.DB.prepare(
+    'SELECT school_name, tagline, announcement, logo_key, logo_mime_type, updated_at FROM settings WHERE id = 1'
+  ).first<SettingsRow>();
+
+  return c.json({ settings: mapSettingsRow(updated) });
+});
+
+// Admin: Remove custom school logo (reverts to default emblem)
+app.delete('/api/admin/settings/logo', async (c) => {
+  const existing = await c.env.DB.prepare('SELECT logo_key FROM settings WHERE id = 1').first<
+    Pick<SettingsRow, 'logo_key'>
+  >();
+
+  if (existing?.logo_key) {
+    await c.env.FILES.delete(existing.logo_key).catch(() => undefined);
+  }
+
+  const now = new Date().toISOString();
+  await c.env.DB.prepare(
+    'UPDATE settings SET logo_key = NULL, logo_mime_type = NULL, updated_at = ? WHERE id = 1'
+  )
+    .bind(now)
+    .run();
+
+  const updated = await c.env.DB.prepare(
+    'SELECT school_name, tagline, announcement, logo_key, logo_mime_type, updated_at FROM settings WHERE id = 1'
+  ).first<SettingsRow>();
+
+  return c.json({ settings: mapSettingsRow(updated) });
 });
 
 // Admin: Create external link resource (JSON) OR upload file resource to R2 (multipart/form-data)
@@ -236,6 +381,7 @@ app.post('/api/admin/resources', async (c) => {
   if (contentType.includes('multipart/form-data')) {
     const formData = await c.req.formData();
     const categoryId = String(formData.get('categoryId') || '').trim();
+    const rawSubcategoryId = String(formData.get('subcategoryId') || '').trim();
     const title = String(formData.get('title') || '').trim();
     const description = String(formData.get('description') || '').trim();
     const isPinned = formData.get('isPinned') === 'true' || formData.get('isPinned') === 'on';
@@ -261,6 +407,11 @@ app.post('/api/admin/resources', async (c) => {
       return c.json({ error: 'Selected category does not exist.' }, 400);
     }
 
+    const subCheck = await resolveSubcategoryId(c.env.DB, categoryId, rawSubcategoryId);
+    if (!subCheck.ok) {
+      return c.json({ error: subCheck.error }, 400);
+    }
+
     const safeName = sanitizeFileName(file.name);
     const fileKey = `resources/${id}/${safeName}`;
     const mimeType = file.type || 'application/octet-stream';
@@ -272,10 +423,23 @@ app.post('/api/admin/resources', async (c) => {
 
     await c.env.DB.prepare(
       `INSERT INTO resources (
-        id, category_id, title, description, type, url, file_key, file_name, file_size, mime_type, is_pinned, sort_order, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, 'file', NULL, ?, ?, ?, ?, ?, 0, ?, ?)`
+        id, category_id, subcategory_id, title, description, type, url, file_key, file_name, file_size, mime_type, is_pinned, sort_order, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, 'file', NULL, ?, ?, ?, ?, ?, 0, ?, ?)`
     )
-      .bind(id, categoryId, title, description, fileKey, safeName, file.size, mimeType, isPinned ? 1 : 0, now, now)
+      .bind(
+        id,
+        categoryId,
+        subCheck.value,
+        title,
+        description,
+        fileKey,
+        safeName,
+        file.size,
+        mimeType,
+        isPinned ? 1 : 0,
+        now,
+        now
+      )
       .run();
 
     const created = await c.env.DB.prepare('SELECT * FROM resources WHERE id = ?')
@@ -299,14 +463,20 @@ app.post('/api/admin/resources', async (c) => {
     return c.json({ error: 'Selected category does not exist.' }, 400);
   }
 
+  const subCheck = await resolveSubcategoryId(c.env.DB, parsed.data.categoryId, parsed.data.subcategoryId);
+  if (!subCheck.ok) {
+    return c.json({ error: subCheck.error }, 400);
+  }
+
   await c.env.DB.prepare(
     `INSERT INTO resources (
-      id, category_id, title, description, type, url, file_key, file_name, file_size, mime_type, is_pinned, sort_order, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, 'link', ?, NULL, NULL, NULL, NULL, ?, 0, ?, ?)`
+      id, category_id, subcategory_id, title, description, type, url, file_key, file_name, file_size, mime_type, is_pinned, sort_order, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, 'link', ?, NULL, NULL, NULL, NULL, ?, 0, ?, ?)`
   )
     .bind(
       id,
       parsed.data.categoryId,
+      subCheck.value,
       parsed.data.title,
       parsed.data.description,
       parsed.data.url,
@@ -341,6 +511,28 @@ app.patch('/api/admin/resources/:id', async (c) => {
   }
 
   const nextCategoryId = parsed.data.categoryId ?? existing.category_id;
+  if (parsed.data.categoryId) {
+    const cat = await c.env.DB.prepare('SELECT id FROM categories WHERE id = ?')
+      .bind(nextCategoryId)
+      .first<{ id: string }>();
+    if (!cat) {
+      return c.json({ error: 'Selected category does not exist.' }, 400);
+    }
+  }
+
+  let nextSubcategoryId: string | null;
+  if (parsed.data.subcategoryId !== undefined) {
+    const subCheck = await resolveSubcategoryId(c.env.DB, nextCategoryId, parsed.data.subcategoryId);
+    if (!subCheck.ok) {
+      return c.json({ error: subCheck.error }, 400);
+    }
+    nextSubcategoryId = subCheck.value;
+  } else if (nextCategoryId !== existing.category_id) {
+    nextSubcategoryId = null;
+  } else {
+    nextSubcategoryId = existing.subcategory_id ?? null;
+  }
+
   const nextTitle = parsed.data.title ?? existing.title;
   const nextDescription = parsed.data.description ?? existing.description;
   const nextUrl = existing.type === 'link' ? (parsed.data.url ?? existing.url) : null;
@@ -349,10 +541,10 @@ app.patch('/api/admin/resources/:id', async (c) => {
 
   await c.env.DB.prepare(
     `UPDATE resources
-     SET category_id = ?, title = ?, description = ?, url = ?, is_pinned = ?, updated_at = ?
+     SET category_id = ?, subcategory_id = ?, title = ?, description = ?, url = ?, is_pinned = ?, updated_at = ?
      WHERE id = ?`
   )
-    .bind(nextCategoryId, nextTitle, nextDescription, nextUrl, nextPinned, now, id)
+    .bind(nextCategoryId, nextSubcategoryId, nextTitle, nextDescription, nextUrl, nextPinned, now, id)
     .run();
 
   const updated = await c.env.DB.prepare('SELECT * FROM resources WHERE id = ?')

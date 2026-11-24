@@ -8,10 +8,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand">
-        <div class="brand-icon" aria-hidden="true">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <div id="admin-brand-icon-wrap" class="brand-icon" aria-hidden="true">
+          <svg id="admin-default-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
+          <img id="admin-logo-img" class="brand-logo" width="48" height="48" alt="" decoding="async" hidden />
         </div>
         <div>
           <h1 id="main-content" tabindex="-1" class="brand-title">Admin Dashboard</h1>
@@ -172,6 +173,86 @@ import BaseLayout from '../layouts/BaseLayout.astro';
               </section>
 
               <section class="panel-card">
+                <h2 id="school-logo-heading">School Logo</h2>
+                <p class="panel-subtitle">
+                  Upload your school seal or emblem (PNG, JPG, WebP, GIF, or AVIF up to 5 MB). It appears in the portal header.
+                </p>
+
+                <div id="logo-status" class="status-msg" role="status" aria-live="polite" hidden></div>
+
+                <form id="logo-form" aria-labelledby="school-logo-heading" method="POST">
+                  <div class="logo-preview-card">
+                    <div id="logo-preview-frame" class="logo-preview-frame">
+                      <svg id="logo-preview-fallback" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+                        <path d="M6 12v5c3 3 9 3 12 0v-5" />
+                      </svg>
+                      <img id="logo-preview-img" class="logo-preview-img" width="72" height="72" alt="Current school logo preview" hidden />
+                    </div>
+                    <div>
+                      <p id="logo-preview-label" class="logo-preview-title">Using default school emblem</p>
+                      <p class="hint" style="margin: 0.15rem 0 0;">Square PNG with transparent background looks best.</p>
+                    </div>
+                  </div>
+
+                  <div class="field">
+                    <label for="school-logo-input">Choose Logo Image</label>
+                    <span id="school-logo-hint" class="hint">Drag and drop an image or click to browse (max 5 MB).</span>
+                    <div id="logo-dropzone" class="file-dropzone file-dropzone-compact">
+                      <input
+                        id="school-logo-input"
+                        name="logo"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+                        class="file-input-sr"
+                        aria-describedby="school-logo-hint"
+                        data-error="school-logo-error"
+                      />
+                      <div class="dropzone-body">
+                        <svg
+                          class="dropzone-icon"
+                          width="28"
+                          height="28"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          aria-hidden="true"
+                        >
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                          <circle cx="8.5" cy="8.5" r="1.5" />
+                          <polyline points="21 15 16 10 5 21" />
+                        </svg>
+                        <p id="logo-dropzone-prompt" class="dropzone-title">
+                          <strong>Drag and drop a logo here</strong>, or click to browse
+                        </p>
+                        <p id="logo-dropzone-status" class="dropzone-meta" role="status" aria-live="polite">
+                          PNG, JPG, WebP, GIF, or AVIF (max 5 MB)
+                        </p>
+                      </div>
+                      <button id="logo-clear-selection-btn" type="button" class="btn btn-secondary btn-sm dropzone-clear" hidden>
+                        Clear selection
+                      </button>
+                    </div>
+                    <div id="school-logo-error" class="error-msg">
+                      <span role="img" aria-label="Error">❌</span> <span id="school-logo-error-text">Please choose a valid image file (max 5 MB).</span>
+                    </div>
+                  </div>
+
+                  <div class="logo-actions">
+                    <button id="upload-logo-btn" type="submit" class="btn btn-primary">
+                      Upload Logo
+                    </button>
+                    <button id="remove-logo-btn" type="button" class="btn btn-danger-outline" hidden>
+                      Remove Logo
+                    </button>
+                  </div>
+                </form>
+              </section>
+
+              <section class="panel-card">
                 <h2 id="password-heading">Change Admin Password</h2>
                 <p class="panel-subtitle">Update your sign-in password anytime.</p>
 
@@ -278,6 +359,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
                         <span>Downloads</span>
                       </label>
                     </div>
+                  </fieldset>
+
+                  <fieldset id="add-subcategory-group" class="choice-group" hidden>
+                    <legend>Subcategory (Optional)</legend>
+                    <div id="add-subcategory-options" class="choice-options"></div>
                   </fieldset>
 
                   <div class="field">
@@ -430,6 +516,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         </div>
       </fieldset>
 
+      <fieldset id="edit-subcategory-group" class="choice-group" hidden>
+        <legend>Subcategory (Optional)</legend>
+        <div id="edit-subcategory-options" class="choice-options"></div>
+      </fieldset>
+
       <div class="field">
         <label for="edit-title">Title <span aria-hidden="true">*</span></label>
         <input
@@ -510,12 +601,15 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       createFileResource,
       createLinkResource,
       deleteResource,
+      deleteSchoolLogo,
       fetchPortal,
       formatFileSize,
       getSavedToken,
+      resolveApiAssetUrl,
       saveToken,
       updateResource,
       updateSchoolSettings,
+      uploadSchoolLogo,
       verifyAdminSession,
     } from '../lib/api';
     import { initAccessibleValidation } from '../lib/form-a11y';
@@ -523,6 +617,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
     initAccessibleValidation(document);
 
+    const adminBrandIconWrap = document.getElementById('admin-brand-icon-wrap') as HTMLDivElement;
+    const adminDefaultIcon = document.getElementById('admin-default-icon') as unknown as SVGSVGElement;
+    const adminLogoImg = document.getElementById('admin-logo-img') as HTMLImageElement;
     const loginSection = document.getElementById('login-section') as HTMLElement;
     const dashboardSection = document.getElementById('dashboard-section') as HTMLDivElement;
     const signOutBtn = document.getElementById('sign-out-btn') as HTMLButtonElement;
@@ -544,6 +641,22 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const schoolAnnouncementInput = document.getElementById('school-announcement-input') as HTMLTextAreaElement;
     const saveSettingsBtn = document.getElementById('save-settings-btn') as HTMLButtonElement;
 
+    // School Logo elements
+    const logoForm = document.getElementById('logo-form') as HTMLFormElement;
+    const logoStatus = document.getElementById('logo-status') as HTMLDivElement;
+    const logoPreviewFrame = document.getElementById('logo-preview-frame') as HTMLDivElement;
+    const logoPreviewFallback = document.getElementById('logo-preview-fallback') as unknown as SVGSVGElement;
+    const logoPreviewImg = document.getElementById('logo-preview-img') as HTMLImageElement;
+    const logoPreviewLabel = document.getElementById('logo-preview-label') as HTMLParagraphElement;
+    const logoDropzone = document.getElementById('logo-dropzone') as HTMLDivElement;
+    const logoInput = document.getElementById('school-logo-input') as HTMLInputElement;
+    const logoDropzonePrompt = document.getElementById('logo-dropzone-prompt') as HTMLParagraphElement;
+    const logoDropzoneStatus = document.getElementById('logo-dropzone-status') as HTMLParagraphElement;
+    const logoClearSelectionBtn = document.getElementById('logo-clear-selection-btn') as HTMLButtonElement;
+    const logoErrorText = document.getElementById('school-logo-error-text') as HTMLSpanElement;
+    const uploadLogoBtn = document.getElementById('upload-logo-btn') as HTMLButtonElement;
+    const removeLogoBtn = document.getElementById('remove-logo-btn') as HTMLButtonElement;
+
     // Password form elements
     const passwordForm = document.getElementById('password-form') as HTMLFormElement;
     const passwordStatus = document.getElementById('password-status') as HTMLDivElement;
@@ -558,6 +671,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const addBtn = document.getElementById('add-resource-btn') as HTMLButtonElement;
     const typeLinkRadio = document.getElementById('type-link') as HTMLInputElement;
     const typeFileRadio = document.getElementById('type-file') as HTMLInputElement;
+    const addCategoryOptions = document.getElementById('add-category-options') as HTMLDivElement;
+    const addSubcategoryGroup = document.getElementById('add-subcategory-group') as HTMLFieldSetElement;
+    const addSubcategoryOptions = document.getElementById('add-subcategory-options') as HTMLDivElement;
     const urlFieldGroup = document.getElementById('url-field-group') as HTMLDivElement;
     const fileFieldGroup = document.getElementById('file-field-group') as HTMLDivElement;
     const resTitleInput = document.getElementById('res-title') as HTMLInputElement;
@@ -580,6 +696,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const editForm = document.getElementById('edit-resource-form') as HTMLFormElement;
     const editError = document.getElementById('edit-dialog-error') as HTMLDivElement;
     const editIdInput = document.getElementById('edit-id') as HTMLInputElement;
+    const editSubcategoryGroup = document.getElementById('edit-subcategory-group') as HTMLFieldSetElement;
+    const editSubcategoryOptions = document.getElementById('edit-subcategory-options') as HTMLDivElement;
     const editTitleInput = document.getElementById('edit-title') as HTMLInputElement;
     const editDescInput = document.getElementById('edit-description') as HTMLInputElement;
     const editUrlGroup = document.getElementById('edit-url-group') as HTMLDivElement;
@@ -730,6 +848,81 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       }
     }
 
+    function renderSubcategoryChoices(
+      groupEl: HTMLFieldSetElement,
+      optionsEl: HTMLDivElement,
+      categoryId: string,
+      inputName: string,
+      idPrefix: string,
+      selectedSubId: string | null
+    ): void {
+      const subs = (portalData?.subcategories || []).filter((s) => s.categoryId === categoryId);
+      if (subs.length === 0) {
+        groupEl.hidden = true;
+        optionsEl.replaceChildren();
+        return;
+      }
+
+      groupEl.hidden = false;
+      const validSelection = selectedSubId && subs.some((s) => s.id === selectedSubId) ? selectedSubId : '';
+      const choices: Array<{ value: string; label: string }> = [
+        { value: '', label: 'General (No subcategory)' },
+        ...subs.map((s) => ({ value: s.id, label: s.name })),
+      ];
+
+      const nodes = choices.map((choice, idx) => {
+        const inputId = `${idPrefix}-${idx}`;
+        const label = document.createElement('label');
+        label.className = 'choice-item';
+        label.htmlFor = inputId;
+
+        const input = document.createElement('input');
+        input.id = inputId;
+        input.type = 'radio';
+        input.name = inputName;
+        input.value = choice.value;
+        input.checked = choice.value === validSelection;
+
+        const text = document.createElement('span');
+        text.textContent = choice.label;
+
+        label.append(input, text);
+        return label;
+      });
+
+      optionsEl.replaceChildren(...nodes);
+    }
+
+    function syncAddSubcategories(selectedSubId: string | null = null): void {
+      const selectedCat = addForm.querySelector<HTMLInputElement>('input[name="categoryId"]:checked');
+      renderSubcategoryChoices(
+        addSubcategoryGroup,
+        addSubcategoryOptions,
+        selectedCat?.value || '',
+        'subcategoryId',
+        'add-subcat',
+        selectedSubId
+      );
+    }
+
+    addCategoryOptions.addEventListener('change', () => {
+      syncAddSubcategories(null);
+    });
+
+    editForm.addEventListener('change', (e) => {
+      const target = e.target;
+      if (target instanceof HTMLInputElement && target.name === 'editCategoryId') {
+        renderSubcategoryChoices(
+          editSubcategoryGroup,
+          editSubcategoryOptions,
+          target.value,
+          'editSubcategoryId',
+          'edit-subcat',
+          null
+        );
+      }
+    });
+
     typeLinkRadio.addEventListener('change', syncResourceTypeFields);
     typeFileRadio.addEventListener('change', syncResourceTypeFields);
     syncResourceTypeFields();
@@ -744,6 +937,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     function renderAdminList(): void {
       if (!portalData) return;
       const categoryMap = new Map(portalData.categories.map((c) => [c.id, c.name]));
+      const subcategoryMap = new Map((portalData.subcategories || []).map((s) => [s.id, s.name]));
 
       if (portalData.resources.length === 0) {
         const empty = document.createElement('li');
@@ -774,6 +968,16 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         catBadge.className = 'badge';
         catBadge.textContent = categoryMap.get(res.categoryId) || 'Uncategorized';
         badges.append(catBadge);
+
+        if (res.subcategoryId) {
+          const subName = subcategoryMap.get(res.subcategoryId);
+          if (subName) {
+            const subBadge = document.createElement('span');
+            subBadge.className = 'badge badge-subcat';
+            subBadge.textContent = subName;
+            badges.append(subBadge);
+          }
+        }
 
         const typeBadge = document.createElement('span');
         typeBadge.className = res.type === 'file' ? 'badge badge-file' : 'badge';
@@ -827,12 +1031,228 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       resourcesList.replaceChildren(...items);
     }
 
+    const MAX_LOGO_BYTES = 5 * 1024 * 1024;
+    const ALLOWED_LOGO_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif']);
+    let logoDragDepth = 0;
+    let logoObjectUrl: string | null = null;
+    let savedLogoUrl: string | null = null;
+
+    function revokeLogoObjectUrl(): void {
+      if (logoObjectUrl) {
+        URL.revokeObjectURL(logoObjectUrl);
+        logoObjectUrl = null;
+      }
+    }
+
+    function applyAdminHeaderLogo(logoUrl: string | null): void {
+      const resolved = resolveApiAssetUrl(logoUrl);
+      if (resolved) {
+        adminLogoImg.src = resolved;
+        adminLogoImg.hidden = false;
+        adminDefaultIcon.style.display = 'none';
+        adminBrandIconWrap.classList.add('has-logo');
+      } else {
+        adminLogoImg.removeAttribute('src');
+        adminLogoImg.hidden = true;
+        adminDefaultIcon.style.display = '';
+        adminBrandIconWrap.classList.remove('has-logo');
+      }
+    }
+
+    adminLogoImg.addEventListener('error', () => {
+      applyAdminHeaderLogo(null);
+    });
+
+    function setDefaultLogoPrompt(): void {
+      const strong = document.createElement('strong');
+      strong.textContent = 'Drag and drop a logo here';
+      logoDropzonePrompt.replaceChildren(strong, document.createTextNode(', or click to browse'));
+    }
+
+    function renderSavedLogoPreview(logoUrl: string | null): void {
+      savedLogoUrl = logoUrl;
+      applyAdminHeaderLogo(logoUrl);
+      removeLogoBtn.hidden = !logoUrl;
+
+      if (logoInput.files?.[0]) return;
+      const resolved = resolveApiAssetUrl(logoUrl);
+      if (resolved) {
+        logoPreviewImg.src = resolved;
+        logoPreviewImg.hidden = false;
+        logoPreviewFallback.style.display = 'none';
+        logoPreviewFrame.classList.add('has-logo');
+        logoPreviewLabel.textContent = 'Current live school logo';
+      } else {
+        logoPreviewImg.removeAttribute('src');
+        logoPreviewImg.hidden = true;
+        logoPreviewFallback.style.display = '';
+        logoPreviewFrame.classList.remove('has-logo');
+        logoPreviewLabel.textContent = 'Using default school emblem';
+      }
+    }
+
+    function syncLogoPickerUI(): void {
+      revokeLogoObjectUrl();
+      const file = logoInput.files?.[0];
+      if (!file) {
+        logoInput.setCustomValidity('');
+        logoErrorText.textContent = 'Please choose a valid image file (max 5 MB).';
+        logoDropzone.classList.remove('has-file');
+        setDefaultLogoPrompt();
+        logoDropzoneStatus.textContent = 'PNG, JPG, WebP, GIF, or AVIF (max 5 MB)';
+        logoClearSelectionBtn.hidden = true;
+        renderSavedLogoPreview(savedLogoUrl);
+        return;
+      }
+
+      let errorMsg = '';
+      if (!ALLOWED_LOGO_MIMES.has(file.type.toLowerCase())) {
+        errorMsg = 'Unsupported file type. Please choose a PNG, JPG, WebP, GIF, or AVIF image.';
+      } else if (file.size > MAX_LOGO_BYTES) {
+        errorMsg = 'Logo image is too large. Maximum size is 5 MB.';
+      }
+
+      logoInput.setCustomValidity(errorMsg);
+      logoErrorText.textContent = errorMsg || 'Please choose a valid image file (max 5 MB).';
+      logoInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+      logoDropzone.classList.add('has-file');
+      logoDropzonePrompt.textContent = `Selected: ${file.name}`;
+      const sizeLabel = formatFileSize(file.size);
+      logoDropzoneStatus.textContent = sizeLabel ? `${sizeLabel} — click "Upload Logo" to publish` : 'Ready to upload';
+      logoClearSelectionBtn.hidden = false;
+
+      if (!errorMsg) {
+        logoObjectUrl = URL.createObjectURL(file);
+        logoPreviewImg.src = logoObjectUrl;
+        logoPreviewImg.hidden = false;
+        logoPreviewFallback.style.display = 'none';
+        logoPreviewFrame.classList.add('has-logo');
+        logoPreviewLabel.textContent = `Preview (not uploaded yet): ${file.name}`;
+      }
+    }
+
+    logoDropzone.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('#logo-clear-selection-btn') || target === logoInput) return;
+      logoInput.click();
+    });
+
+    logoDropzone.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      logoDragDepth += 1;
+      logoDropzone.classList.add('is-dragover');
+      logoDropzonePrompt.textContent = 'Drop your logo image here';
+    });
+
+    logoDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      logoDropzone.classList.add('is-dragover');
+    });
+
+    logoDropzone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      logoDragDepth = Math.max(0, logoDragDepth - 1);
+      if (logoDragDepth === 0) {
+        logoDropzone.classList.remove('is-dragover');
+        syncLogoPickerUI();
+      }
+    });
+
+    logoDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      logoDragDepth = 0;
+      logoDropzone.classList.remove('is-dragover');
+      const dropped = e.dataTransfer?.files?.[0];
+      if (dropped) {
+        try {
+          const dt = new DataTransfer();
+          dt.items.add(dropped);
+          logoInput.files = dt.files;
+        } catch {
+          // Fallback if DataTransfer assignment is unavailable
+        }
+        logoInput.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        syncLogoPickerUI();
+      }
+    });
+
+    logoInput.addEventListener('change', syncLogoPickerUI);
+
+    logoClearSelectionBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      logoInput.value = '';
+      syncLogoPickerUI();
+      logoInput.focus();
+    });
+
+    logoForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!authToken) return;
+      logoStatus.hidden = true;
+
+      const file = logoInput.files?.[0];
+      if (!file) {
+        logoInput.setCustomValidity('Please choose an image file to upload.');
+        logoErrorText.textContent = 'Please choose an image file to upload.';
+        logoInput.dispatchEvent(new Event('invalid', { bubbles: false }));
+        logoInput.focus();
+        return;
+      }
+
+      if (!logoForm.checkValidity()) {
+        logoForm.querySelector<HTMLElement>(':invalid')?.focus();
+        return;
+      }
+
+      uploadLogoBtn.disabled = true;
+      removeLogoBtn.disabled = true;
+      try {
+        const res = await uploadSchoolLogo(authToken, file);
+        logoInput.value = '';
+        savedLogoUrl = res.settings.logoUrl;
+        syncLogoPickerUI();
+        renderSavedLogoPreview(res.settings.logoUrl);
+        showStatus(logoStatus, 'School logo updated! Teachers will now see it in the portal header.', 'success');
+      } catch (err) {
+        showStatus(logoStatus, err instanceof Error ? err.message : 'Failed to upload logo.', 'error');
+      } finally {
+        uploadLogoBtn.disabled = false;
+        removeLogoBtn.disabled = false;
+      }
+    });
+
+    removeLogoBtn.addEventListener('click', async () => {
+      if (!authToken) return;
+      logoStatus.hidden = true;
+      uploadLogoBtn.disabled = true;
+      removeLogoBtn.disabled = true;
+      try {
+        const res = await deleteSchoolLogo(authToken);
+        logoInput.value = '';
+        savedLogoUrl = res.settings.logoUrl;
+        syncLogoPickerUI();
+        renderSavedLogoPreview(res.settings.logoUrl);
+        showStatus(logoStatus, 'Custom logo removed. Reverted to default school emblem.', 'success');
+      } catch (err) {
+        showStatus(logoStatus, err instanceof Error ? err.message : 'Failed to remove logo.', 'error');
+      } finally {
+        uploadLogoBtn.disabled = false;
+        removeLogoBtn.disabled = false;
+      }
+    });
+
     async function loadDashboardData(): Promise<void> {
       portalData = await fetchPortal();
       schoolNameInput.value = portalData.settings.schoolName;
       schoolTaglineInput.value = portalData.settings.tagline;
       schoolAnnouncementInput.value = portalData.settings.announcement;
       adminSubtitle.textContent = `Managing: ${portalData.settings.schoolName}`;
+      renderSavedLogoPreview(portalData.settings.logoUrl);
+      const currentSub = addForm.querySelector<HTMLInputElement>('input[name="subcategoryId"]:checked')?.value || null;
+      syncAddSubcategories(currentSub);
       renderAdminList();
     }
 
@@ -863,6 +1283,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         `input[name="editCategoryId"][value="${CSS.escape(res.categoryId)}"]`
       );
       if (radio) radio.checked = true;
+      renderSubcategoryChoices(
+        editSubcategoryGroup,
+        editSubcategoryOptions,
+        res.categoryId,
+        'editSubcategoryId',
+        'edit-subcat',
+        res.subcategoryId
+      );
 
       const isLink = res.type === 'link';
       editUrlGroup.hidden = !isLink;
@@ -886,12 +1314,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       }
 
       const selectedCat = editForm.querySelector<HTMLInputElement>('input[name="editCategoryId"]:checked');
+      const selectedSub = editForm.querySelector<HTMLInputElement>('input[name="editSubcategoryId"]:checked');
       editSaveBtn.disabled = true;
       editError.hidden = true;
 
       try {
         await updateResource(authToken, editingResource.id, {
           categoryId: selectedCat?.value,
+          subcategoryId: !editSubcategoryGroup.hidden ? selectedSub?.value || null : null,
           title: editTitleInput.value.trim(),
           description: editDescInput.value.trim(),
           url: editingResource.type === 'link' ? editUrlInput.value.trim() : undefined,
@@ -1036,6 +1466,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
       const selectedCat = addForm.querySelector<HTMLInputElement>('input[name="categoryId"]:checked');
       if (!selectedCat) return;
+      const selectedSub = !addSubcategoryGroup.hidden
+        ? addForm.querySelector<HTMLInputElement>('input[name="subcategoryId"]:checked')
+        : null;
+      const subcategoryId = selectedSub?.value || null;
 
       addBtn.disabled = true;
       try {
@@ -1047,6 +1481,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           }
           const formData = new FormData();
           formData.append('categoryId', selectedCat.value);
+          if (subcategoryId) {
+            formData.append('subcategoryId', subcategoryId);
+          }
           formData.append('title', resTitleInput.value.trim());
           formData.append('description', resDescInput.value.trim());
           formData.append('isPinned', String(resPinnedInput.checked));
@@ -1055,6 +1492,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         } else {
           await createLinkResource(authToken, {
             categoryId: selectedCat.value,
+            subcategoryId,
             title: resTitleInput.value.trim(),
             description: resDescInput.value.trim(),
             url: resUrlInput.value.trim(),
@@ -1065,6 +1503,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         addForm.reset();
         syncResourceTypeFields();
         syncFileDropzoneUI();
+        syncAddSubcategories(null);
         await loadDashboardData();
         showStatus(addStatus, 'Added! It is now visible on the Teacher Portal.', 'success');
       } catch (err) {

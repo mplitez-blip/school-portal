@@ -12,9 +12,20 @@ export const CategorySchema = z.object({
 });
 export type Category = z.infer<typeof CategorySchema>;
 
+export const SubcategorySchema = z.object({
+  id: z.string(),
+  categoryId: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string(),
+  sortOrder: z.number().int(),
+});
+export type Subcategory = z.infer<typeof SubcategorySchema>;
+
 export const ResourceSchema = z.object({
   id: z.string(),
   categoryId: z.string(),
+  subcategoryId: z.string().nullable(),
   title: z.string(),
   description: z.string(),
   type: ResourceTypeSchema,
@@ -32,6 +43,7 @@ export const SchoolSettingsSchema = z.object({
   schoolName: z.string(),
   tagline: z.string(),
   announcement: z.string(),
+  logoUrl: z.string().nullable(),
   updatedAt: z.string(),
 });
 export type SchoolSettings = z.infer<typeof SchoolSettingsSchema>;
@@ -39,6 +51,7 @@ export type SchoolSettings = z.infer<typeof SchoolSettingsSchema>;
 export const PortalPayloadSchema = z.object({
   settings: SchoolSettingsSchema,
   categories: z.array(CategorySchema),
+  subcategories: z.array(SubcategorySchema),
   resources: z.array(ResourceSchema),
 });
 export type PortalPayload = z.infer<typeof PortalPayloadSchema>;
@@ -73,6 +86,7 @@ export const SafeHttpUrlSchema = z
 
 export const CreateLinkResourceInputSchema = z.object({
   categoryId: z.string().min(1, 'Please choose a category.'),
+  subcategoryId: z.string().trim().nullable().optional(),
   title: z.string().trim().min(2, 'Title must be at least 2 characters.').max(140),
   description: z.string().trim().max(300).optional().default(''),
   url: SafeHttpUrlSchema,
@@ -82,6 +96,7 @@ export type CreateLinkResourceInput = z.infer<typeof CreateLinkResourceInputSche
 
 export const UpdateResourceInputSchema = z.object({
   categoryId: z.string().min(1).optional(),
+  subcategoryId: z.string().trim().nullable().optional(),
   title: z.string().trim().min(2).max(140).optional(),
   description: z.string().trim().max(300).optional(),
   url: SafeHttpUrlSchema.optional(),

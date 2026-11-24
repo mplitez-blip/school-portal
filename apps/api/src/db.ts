@@ -1,12 +1,33 @@
-import type { Category, PortalPayload, Resource, SchoolSettings } from '@school-portal/shared';
+import type { Category, PortalPayload, Resource, SchoolSettings, Subcategory } from '@school-portal/shared';
 import { hashPassword } from './auth';
 import type { Env } from './types';
 
-interface SettingsRow {
+export interface SettingsRow {
   school_name: string;
   tagline: string;
   announcement: string;
+  logo_key: string | null;
+  logo_mime_type: string | null;
   updated_at: string;
+}
+
+export function mapSettingsRow(row: SettingsRow | null | undefined): SchoolSettings {
+  if (!row) {
+    return {
+      schoolName: 'School Portal',
+      tagline: 'Teacher Resource & Submission Hub',
+      announcement: '',
+      logoUrl: null,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  return {
+    schoolName: row.school_name,
+    tagline: row.tagline,
+    announcement: row.announcement,
+    logoUrl: row.logo_key ? `/api/logo?v=${encodeURIComponent(row.updated_at)}` : null,
+    updatedAt: row.updated_at,
+  };
 }
 
 interface CategoryRow {
@@ -17,9 +38,19 @@ interface CategoryRow {
   sort_order: number;
 }
 
+interface SubcategoryRow {
+  id: string;
+  category_id: string;
+  slug: string;
+  name: string;
+  description: string;
+  sort_order: number;
+}
+
 export interface ResourceRow {
   id: string;
   category_id: string;
+  subcategory_id: string | null;
   title: string;
   description: string;
   type: 'link' | 'file';
@@ -44,6 +75,7 @@ export function mapResourceRow(row: ResourceRow): Resource {
   return {
     id: row.id,
     categoryId: row.category_id,
+    subcategoryId: row.subcategory_id ?? null,
     title: row.title,
     description: row.description,
     type: row.type,
@@ -73,35 +105,26 @@ export async function ensureDefaultAdmin(env: Env): Promise<void> {
 }
 
 export async function getPortalPayload(db: D1Database): Promise<PortalPayload> {
-  const [settingsRow, categoriesRes, resourcesRes] = await Promise.all([
+  const [settingsRow, categoriesRes, subcategoriesRes, resourcesRes] = await Promise.all([
     db
-      .prepare('SELECT school_name, tagline, announcement, updated_at FROM settings WHERE id = 1')
+      .prepare('SELECT school_name, tagline, announcement, logo_key, logo_mime_type, updated_at FROM settings WHERE id = 1')
       .first<SettingsRow>(),
     db
       .prepare('SELECT id, slug, name, description, sort_order FROM categories ORDER BY sort_order ASC, name ASC')
       .all<CategoryRow>(),
     db
+      .prepare('SELECT id, category_id, slug, name, description, sort_order FROM subcategories ORDER BY sort_order ASC, name ASC')
+      .all<SubcategoryRow>(),
+    db
       .prepare(
-        `SELECT id, category_id, title, description, type, url, file_key, file_name, file_size, mime_type, is_pinned, sort_order, updated_at
+        `SELECT id, category_id, subcategory_id, title, description, type, url, file_key, file_name, file_size, mime_type, is_pinned, sort_order, updated_at
          FROM resources
          ORDER BY is_pinned DESC, sort_order ASC, updated_at DESC`
       )
       .all<ResourceRow>(),
   ]);
 
-  const settings: SchoolSettings = settingsRow
-    ? {
-        schoolName: settingsRow.school_name,
-        tagline: settingsRow.tagline,
-        announcement: settingsRow.announcement,
-        updatedAt: settingsRow.updated_at,
-      }
-    : {
-        schoolName: 'School Portal',
-        tagline: 'Teacher Resource & Submission Hub',
-        announcement: '',
-        updatedAt: new Date().toISOString(),
-      };
+  const settings: SchoolSettings = mapSettingsRow(settingsRow);
 
   const categories: Category[] = (categoriesRes.results || []).map((row) => ({
     id: row.id,
@@ -111,7 +134,16 @@ export async function getPortalPayload(db: D1Database): Promise<PortalPayload> {
     sortOrder: row.sort_order,
   }));
 
+  const subcategories: Subcategory[] = (subcategoriesRes.results || []).map((row) => ({
+    id: row.id,
+    categoryId: row.category_id,
+    slug: row.slug,
+    name: row.name,
+    description: row.description,
+    sortOrder: row.sort_order,
+  }));
+
   const resources: Resource[] = (resourcesRes.results || []).map(mapResourceRow);
 
-  return { settings, categories, resources };
+  return { settings, categories, subcategories, resources };
 }
