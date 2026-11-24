@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { createMiddleware } from 'hono/factory';
 import {
   ChangePasswordInputSchema,
   CreateLinkResourceInputSchema,
@@ -25,7 +26,7 @@ app.use(
     origin: (origin, c) => {
       const configured = (c.env.CORS_ORIGIN || '*').trim();
       if (configured === '*') return origin || '*';
-      const allowed = configured.split(',').map((s) => s.trim());
+      const allowed = configured.split(',').map((s: string) => s.trim());
       return origin && allowed.includes(origin) ? origin : allowed[0];
     },
     allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -133,22 +134,21 @@ app.post('/api/auth/login', async (c) => {
 });
 
 // Protect all /api/admin/* and /api/auth/me + /api/auth/change-password routes
-const requireAdmin = async (
-  c: Parameters<Parameters<typeof app.use>[1]>[0],
-  next: Parameters<Parameters<typeof app.use>[1]>[1]
-) => {
-  const authHeader = c.req.header('Authorization') || '';
-  if (!authHeader.startsWith('Bearer ')) {
-    return c.json({ error: 'Admin sign-in required.' }, 401);
+const requireAdmin = createMiddleware<{ Bindings: Env; Variables: AppVariables }>(
+  async (c, next) => {
+    const authHeader = c.req.header('Authorization') || '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return c.json({ error: 'Admin sign-in required.' }, 401);
+    }
+    const token = authHeader.slice('Bearer '.length).trim();
+    const payload = await verifyAdminToken(c.env, token);
+    if (!payload) {
+      return c.json({ error: 'Session expired. Please sign in again.' }, 401);
+    }
+    c.set('admin', payload);
+    await next();
   }
-  const token = authHeader.slice('Bearer '.length).trim();
-  const payload = await verifyAdminToken(c.env, token);
-  if (!payload) {
-    return c.json({ error: 'Session expired. Please sign in again.' }, 401);
-  }
-  c.set('admin', payload);
-  await next();
-};
+);
 
 app.use('/api/admin/*', requireAdmin);
 app.use('/api/auth/me', requireAdmin);
@@ -239,13 +239,14 @@ app.post('/api/admin/resources', async (c) => {
     const title = String(formData.get('title') || '').trim();
     const description = String(formData.get('description') || '').trim();
     const isPinned = formData.get('isPinned') === 'true' || formData.get('isPinned') === 'on';
-    const file = formData.get('file');
+    const rawFile = formData.get('file') as unknown;
+    const file = rawFile instanceof File ? rawFile : null;
 
     if (!categoryId || title.length < 2) {
       return c.json({ error: 'Category and title (at least 2 characters) are required.' }, 400);
     }
 
-    if (!(file instanceof File) || file.size === 0) {
+    if (!file || file.size === 0) {
       return c.json({ error: 'Please select a file to upload.' }, 400);
     }
 

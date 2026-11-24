@@ -13,7 +13,7 @@ async function ensureFocusgroupPolyfill(): Promise<void> {
   polyfillLoaded = true;
   if (!Object.hasOwn(HTMLElement.prototype, 'focusGroup')) {
     const { polyfill } = await import('@microsoft/focusgroup-polyfill');
-    polyfill();
+    polyfill(document.body);
   }
 }
 

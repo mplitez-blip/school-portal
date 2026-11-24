@@ -11,7 +11,7 @@
     "typecheck": "astro check"
   },
   "dependencies": {
-    "@microsoft/focusgroup-polyfill": "^0.3.2",
+    "@microsoft/focusgroup-polyfill": "^1.6.0",
     "@school-portal/shared": "*",
     "astro": "^5.7.10"
   },

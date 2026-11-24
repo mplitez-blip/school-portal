@@ -98,8 +98,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     <div id="dashboard-section" hidden>
       <div id="admin-tabs" class="tabs">
         <div class="tablist-wrap">
-          <div class="tablist scroller" focusgroup="tablist nomemory" aria-label="Admin sections">
-            <button type="button" id="tab-school" class="tab-btn" aria-selected="true" focusgroupstart>
+          <div class="tablist scroller" {...({ focusgroup: 'tablist nomemory' } as any)} aria-label="Admin sections">
+            <button type="button" id="tab-school" class="tab-btn" aria-selected="true" {...({ focusgroupstart: '' } as any)}>
               School Settings
             </button>
             <button type="button" id="tab-resources" class="tab-btn" aria-selected="false">

@@ -73,10 +73,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           <div
             id="category-tablist"
             class="tablist scroller"
-            focusgroup="tablist nomemory"
+            {...({ focusgroup: 'tablist nomemory' } as any)}
             aria-label="Resource categories"
           >
-            <button type="button" id="tab-all" class="tab-btn" aria-selected="true" focusgroupstart>
+            <button type="button" id="tab-all" class="tab-btn" aria-selected="true" {...({ focusgroupstart: '' } as any)}>
               <span>All Resources</span>
               <span class="tab-count" data-count-for="all">0</span>
             </button>

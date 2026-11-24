@@ -12,4 +12,5 @@ export interface JwtUserPayload {
   username: string;
   role: 'admin';
   exp: number;
+  [key: string]: unknown;
 }
